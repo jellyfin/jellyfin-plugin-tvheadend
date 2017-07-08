@@ -127,8 +127,9 @@ namespace TVHeadEnd.DataHelper
                                 sti.EndDate = DateTime.Now.AddDays(retentionInDays).ToUniversalTime();
                             }
                         }
-                        catch (InvalidCastException)
+                        catch (Exception e)
                         {
+                            _logger.Error("Exception during 'EndDate' calculation: " + e.Message + "\n" + e + "\n" + m.ToString());
                         }
 
                         try
