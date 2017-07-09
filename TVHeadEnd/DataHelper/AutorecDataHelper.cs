@@ -124,7 +124,16 @@ namespace TVHeadEnd.DataHelper
                             if (m.containsField("retention"))
                             {
                                 int retentionInDays = m.getInt("retention");
-                                sti.EndDate = DateTime.Now.AddDays(retentionInDays).ToUniversalTime();
+
+                                if (DateTime.MaxValue.AddDays(-retentionInDays) < DateTime.Now)
+                                {
+                                    _logger.Error("Change during 'EndDate' calculation: set retention value to 'DateTime.MaxValue'");
+                                    sti.EndDate = DateTime.MaxValue.ToUniversalTime();
+                                }
+                                else
+                                {
+                                    sti.EndDate = DateTime.Now.AddDays(retentionInDays).ToUniversalTime();
+                                }
                             }
                         }
                         catch (Exception e)
