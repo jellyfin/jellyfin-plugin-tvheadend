@@ -127,8 +127,8 @@ namespace TVHeadEnd.DataHelper
 
                                 if (DateTime.MaxValue.AddDays(-retentionInDays) < DateTime.Now)
                                 {
-                                    _logger.Error("Change during 'EndDate' calculation: set retention value to 'DateTime.MaxValue'");
-                                    sti.EndDate = DateTime.MaxValue.ToUniversalTime();
+                                    _logger.Error("[TVHclient] Change during 'EndDate' calculation: set retention value from '" + retentionInDays + "' to '365' days");
+                                    sti.EndDate = DateTime.Now.AddDays(365).ToUniversalTime();
                                 }
                                 else
                                 {
@@ -138,7 +138,7 @@ namespace TVHeadEnd.DataHelper
                         }
                         catch (Exception e)
                         {
-                            _logger.Error("Exception during 'EndDate' calculation: " + e.Message + "\n" + e + "\n" + m.ToString());
+                            _logger.Error("[TVHclient] Exception during 'EndDate' calculation: " + e.Message + "\n" + e + "\n" + m.ToString());
                         }
 
                         try
