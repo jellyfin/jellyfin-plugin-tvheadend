@@ -124,11 +124,21 @@ namespace TVHeadEnd.DataHelper
                             if (m.containsField("retention"))
                             {
                                 int retentionInDays = m.getInt("retention");
-                                sti.EndDate = DateTime.Now.AddDays(retentionInDays).ToUniversalTime();
+
+                                if (DateTime.MaxValue.AddDays(-retentionInDays) < DateTime.Now)
+                                {
+                                    _logger.Error("[TVHclient] Change during 'EndDate' calculation: set retention value from '" + retentionInDays + "' to '365' days");
+                                    sti.EndDate = DateTime.Now.AddDays(365).ToUniversalTime();
+                                }
+                                else
+                                {
+                                    sti.EndDate = DateTime.Now.AddDays(retentionInDays).ToUniversalTime();
+                                }
                             }
                         }
-                        catch (InvalidCastException)
+                        catch (Exception e)
                         {
+                            _logger.Error("[TVHclient] Exception during 'EndDate' calculation: " + e.Message + "\n" + e + "\n" + m.ToString());
                         }
 
                         try
