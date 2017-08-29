@@ -589,10 +589,6 @@ namespace TVHeadEnd
                 mediaSourceInfo.Container = info.Container;
                 _logger.Info("[TVHclient]         Container:                  " + info.Container);
 
-                mediaSourceInfo.Formats = info.Formats;
-                _logger.Info("[TVHclient]         Formats:                    ");
-                LogStringList(info.Formats, "                                 ");
-
                 mediaSourceInfo.MediaStreams = info.MediaStreams;
                 _logger.Info("[TVHclient]         MediaStreams:               ");
                 LogMediaStreamList(info.MediaStreams, "                       ");

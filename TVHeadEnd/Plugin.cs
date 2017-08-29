@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
@@ -50,6 +51,12 @@ namespace TVHeadEnd
             {
                 return "Provides live TV using Tvheadend as a back-end.";
             }
+        }
+
+        private Guid _id = new Guid("95732bbe-15ed-4293-bab2-e056ccc50159");
+        public override Guid Id
+        {
+            get { return _id; }
         }
 
         /// <summary>
