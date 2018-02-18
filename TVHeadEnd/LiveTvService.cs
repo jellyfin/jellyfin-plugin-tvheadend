@@ -18,6 +18,7 @@ using TVHeadEnd.Helper;
 using TVHeadEnd.HTSP;
 using TVHeadEnd.HTSP_Responses;
 using TVHeadEnd.TimeoutHelper;
+using System.Linq;
 
 namespace TVHeadEnd
 {
@@ -35,6 +36,7 @@ namespace TVHeadEnd
         private volatile int _subscriptionId = 0;
 
         private readonly ILogger _logger;
+        public DateTime LastRecordingChange = DateTime.MinValue;
 
         public LiveTvService(ILogger logger, IMediaEncoder mediaEncoder)
         {
@@ -113,6 +115,7 @@ namespace TVHeadEnd
             {
                 LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
                 _htsConnectionHandler.SendMessage(deleteAutorecMessage, lbrh);
+                LastRecordingChange = DateTime.UtcNow;
                 return lbrh.getResponse();
             }));
 
@@ -149,6 +152,7 @@ namespace TVHeadEnd
             {
                 LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
                 _htsConnectionHandler.SendMessage(cancelTimerMessage, lbrh);
+                LastRecordingChange = DateTime.UtcNow;
                 return lbrh.getResponse();
             }));
 
@@ -323,6 +327,7 @@ namespace TVHeadEnd
             {
                 LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
                 _htsConnectionHandler.SendMessage(deleteRecordingMessage, lbrh);
+                LastRecordingChange = DateTime.UtcNow;
                 return lbrh.getResponse();
             }));
 
@@ -364,7 +369,17 @@ namespace TVHeadEnd
                 return new List<ChannelInfo>();
             }
 
-            return twtRes.Result;
+            var list = twtRes.Result.ToList();
+
+            foreach (var channel in list)
+            {
+                if (string.IsNullOrEmpty(channel.ImageUrl))
+                {
+                    channel.ImageUrl = _htsConnectionHandler.GetChannelImageUrl(channel.Id);
+                }
+            }
+
+            return list;
         }
 
         public async Task<MediaSourceInfo> GetChannelStream(string channelId, string mediaSourceId, CancellationToken cancellationToken)
@@ -412,9 +427,6 @@ namespace TVHeadEnd
                     // Probe the asset stream to determine available sub-streams
                     string livetvasset_probeUrl = "" + livetvasset.Path;
                     string livetvasset_source = "LiveTV";
-
-                    // Probe the asset stream to determine available sub-streams
-                    await ProbeStream(livetvasset, livetvasset_probeUrl, livetvasset_source, cancellationToken);
 
                     // If enabled, force video deinterlacing for channels
                     if(_htsConnectionHandler.GetForceDeinterlace())
@@ -532,6 +544,11 @@ namespace TVHeadEnd
 
         public async Task<IEnumerable<RecordingInfo>> GetRecordingsAsync(CancellationToken cancellationToken)
         {
+            return new List<RecordingInfo>();
+        }
+
+        public async Task<IEnumerable<MyRecordingInfo>> GetAllRecordingsAsync(CancellationToken cancellationToken)
+        {
             // retrieve all 'Pending', 'Inprogress' and 'Completed' recordings
             // we don't deliver the 'Pending' recordings
 
@@ -539,115 +556,19 @@ namespace TVHeadEnd
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
                 _logger.Info("[TVHclient] GetRecordingsAsync, call canceled or timed out - returning empty list.");
-                return new List<RecordingInfo>();
+                return new List<MyRecordingInfo>();
             }
 
-            TaskWithTimeoutRunner<IEnumerable<RecordingInfo>> twtr = new TaskWithTimeoutRunner<IEnumerable<RecordingInfo>>(TIMEOUT);
-            TaskWithTimeoutResult<IEnumerable<RecordingInfo>> twtRes = await
+            TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>> twtr = new TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>>(TIMEOUT);
+            TaskWithTimeoutResult<IEnumerable<MyRecordingInfo>> twtRes = await
                 twtr.RunWithTimeout(_htsConnectionHandler.BuildDvrInfos(cancellationToken));
 
             if (twtRes.HasTimeout)
             {
-                return new List<RecordingInfo>();
+                return new List<MyRecordingInfo>();
             }
 
             return twtRes.Result;
-        }
-
-        private async Task ProbeStream(MediaSourceInfo mediaSourceInfo, string probeUrl, string source, CancellationToken cancellationToken)
-        {
-            _logger.Info("[TVHclient] Probe stream for {0}", source);
-            _logger.Info("[TVHclient] Probe URL: {0}", probeUrl);
-
-            MediaInfoRequest req = new MediaInfoRequest
-            {
-                MediaType = MediaBrowser.Model.Dlna.DlnaProfileType.Video,
-                InputPath = probeUrl,
-                Protocol = MediaProtocol.Http,
-                ExtractChapters = false,
-                VideoType = VideoType.VideoFile,
-                // currently not available !!! 
-                // RequiredHttpHeaders = mediaSourceInfo.RequiredHttpHeaders,
-            };
-
-            var originalRuntime = mediaSourceInfo.RunTimeTicks;
-            Stopwatch stopWatch = new Stopwatch();
-            stopWatch.Start();
-            MediaInfo info = await _mediaEncoder.GetMediaInfo(req, cancellationToken).ConfigureAwait(false);
-            stopWatch.Stop();
-            TimeSpan ts = stopWatch.Elapsed;
-            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
-            _logger.Info("[TVHclient] Probe RunTime " + elapsedTime);
-
-            if (info != null)
-            {
-                _logger.Info("[TVHclient] Probe returned:");
-
-                mediaSourceInfo.Bitrate = info.Bitrate;
-                _logger.Info("[TVHclient]         BitRate:                    " + info.Bitrate);
-
-                mediaSourceInfo.Container = info.Container;
-                _logger.Info("[TVHclient]         Container:                  " + info.Container);
-
-                mediaSourceInfo.MediaStreams = info.MediaStreams;
-                _logger.Info("[TVHclient]         MediaStreams:               ");
-                LogMediaStreamList(info.MediaStreams, "                       ");
-
-                mediaSourceInfo.RunTimeTicks = info.RunTimeTicks;
-                _logger.Info("[TVHclient]         RunTimeTicks:               " + info.RunTimeTicks);
-
-                mediaSourceInfo.Size = info.Size;
-                _logger.Info("[TVHclient]         Size:                       " + info.Size);
-
-                mediaSourceInfo.Timestamp = info.Timestamp;
-                _logger.Info("[TVHclient]         Timestamp:                  " + info.Timestamp);
-
-                mediaSourceInfo.Video3DFormat = info.Video3DFormat;
-                _logger.Info("[TVHclient]         Video3DFormat:              " + info.Video3DFormat);
-
-                mediaSourceInfo.VideoType = info.VideoType;
-                _logger.Info("[TVHclient]         VideoType:                  " + info.VideoType);
-
-                mediaSourceInfo.RequiresClosing = true;
-                _logger.Info("[TVHclient]         RequiresClosing:            " + true);
-
-                mediaSourceInfo.RequiresOpening = true;
-                _logger.Info("[TVHclient]         RequiresOpening:            " + true);
-
-                mediaSourceInfo.SupportsDirectPlay = true;
-                _logger.Info("[TVHclient]         SupportsDirectPlay:         " + true);
-
-                mediaSourceInfo.SupportsDirectStream = true;
-                _logger.Info("[TVHclient]         SupportsDirectStream:       " + true);
-
-                mediaSourceInfo.SupportsTranscoding = true;
-                _logger.Info("[TVHclient]         SupportsTranscoding:        " + true);
-
-                mediaSourceInfo.DefaultSubtitleStreamIndex = null;
-                _logger.Info("[TVHclient]         DefaultSubtitleStreamIndex: n/a");
-
-                if (!originalRuntime.HasValue)
-                {
-                    mediaSourceInfo.RunTimeTicks = null;
-                    _logger.Info("[TVHclient]         Original runtime:           n/a");
-                }
-
-                var audioStream = mediaSourceInfo.MediaStreams.FirstOrDefault(i => i.Type == MediaBrowser.Model.Entities.MediaStreamType.Audio);
-                if (audioStream == null || audioStream.Index == -1)
-                {
-                    mediaSourceInfo.DefaultAudioStreamIndex = null;
-                    _logger.Info("[TVHclient]         DefaultAudioStreamIndex:    n/a");
-                }
-                else
-                {
-                    mediaSourceInfo.DefaultAudioStreamIndex = audioStream.Index;
-                    _logger.Info("[TVHclient]         DefaultAudioStreamIndex:    '" + info.DefaultAudioStreamIndex + "'");
-                }
-            }
-            else
-            {
-                _logger.Error("[TVHclient] Cannot probe {0} stream", source);
-            }
         }
 
         private void LogStringList(List<String> theList, String prefix)
@@ -743,9 +664,6 @@ namespace TVHeadEnd
                     // Set asset source and type for stream probing and logging
                     string recordingasset_probeUrl = "" + recordingasset.Path;
                     string recordingasset_source = "Recording";
-
-                    // Probe the asset stream to determine available sub-streams
-                    await ProbeStream(recordingasset, recordingasset_probeUrl, recordingasset_source, cancellationToken);
 
                     // If enabled, force video deinterlacing for recordings
                     if (_htsConnectionHandler.GetForceDeinterlace())
@@ -907,6 +825,7 @@ namespace TVHeadEnd
         public async Task UpdateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken)
         {
             await CancelSeriesTimerAsync(info.Id, cancellationToken);
+            LastRecordingChange = DateTime.UtcNow;
             // TODO add if method is implemented 
             // await CreateSeriesTimerAsync(info, cancellationToken);
         }
@@ -931,6 +850,7 @@ namespace TVHeadEnd
             {
                 LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
                 _htsConnectionHandler.SendMessage(updateTimerMessage, lbrh);
+                LastRecordingChange = DateTime.UtcNow;
                 return lbrh.getResponse();
             }));
 
@@ -1009,4 +929,204 @@ namespace TVHeadEnd
         }
         */
     }
+
+    public class MyRecordingInfo
+    {
+        /// <summary>
+        /// Id of the recording.
+        /// </summary>
+        public string Id { get; set; }
+
+        /// <summary>
+        /// Gets or sets the series timer identifier.
+        /// </summary>
+        /// <value>The series timer identifier.</value>
+        public string SeriesTimerId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the timer identifier.
+        /// </summary>
+        /// <value>The timer identifier.</value>
+        public string TimerId { get; set; }
+
+        /// <summary>
+        /// ChannelId of the recording.
+        /// </summary>
+        public string ChannelId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the type of the channel.
+        /// </summary>
+        /// <value>The type of the channel.</value>
+        public ChannelType ChannelType { get; set; }
+
+        /// <summary>
+        /// Name of the recording.
+        /// </summary>
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Gets or sets the path.
+        /// </summary>
+        /// <value>The path.</value>
+        public string Path { get; set; }
+
+        /// <summary>
+        /// Gets or sets the URL.
+        /// </summary>
+        /// <value>The URL.</value>
+        public string Url { get; set; }
+
+        /// <summary>
+        /// Gets or sets the overview.
+        /// </summary>
+        /// <value>The overview.</value>
+        public string Overview { get; set; }
+
+        /// <summary>
+        /// The start date of the recording, in UTC.
+        /// </summary>
+        public DateTime StartDate { get; set; }
+
+        /// <summary>
+        /// The end date of the recording, in UTC.
+        /// </summary>
+        public DateTime EndDate { get; set; }
+
+        /// <summary>
+        /// Gets or sets the program identifier.
+        /// </summary>
+        /// <value>The program identifier.</value>
+        public string ProgramId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the status.
+        /// </summary>
+        /// <value>The status.</value>
+        public RecordingStatus Status { get; set; }
+
+        /// <summary>
+        /// Genre of the program.
+        /// </summary>
+        public List<string> Genres { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is repeat.
+        /// </summary>
+        /// <value><c>true</c> if this instance is repeat; otherwise, <c>false</c>.</value>
+        public bool IsRepeat { get; set; }
+
+        /// <summary>
+        /// Gets or sets the episode title.
+        /// </summary>
+        /// <value>The episode title.</value>
+        public string EpisodeTitle { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is hd.
+        /// </summary>
+        /// <value><c>true</c> if this instance is hd; otherwise, <c>false</c>.</value>
+        public bool? IsHD { get; set; }
+
+        /// <summary>
+        /// Gets or sets the audio.
+        /// </summary>
+        /// <value>The audio.</value>
+        public ProgramAudio? Audio { get; set; }
+
+        /// <summary>
+        /// Gets or sets the original air date.
+        /// </summary>
+        /// <value>The original air date.</value>
+        public DateTime? OriginalAirDate { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is movie.
+        /// </summary>
+        /// <value><c>true</c> if this instance is movie; otherwise, <c>false</c>.</value>
+        public bool IsMovie { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is sports.
+        /// </summary>
+        /// <value><c>true</c> if this instance is sports; otherwise, <c>false</c>.</value>
+        public bool IsSports { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is series.
+        /// </summary>
+        /// <value><c>true</c> if this instance is series; otherwise, <c>false</c>.</value>
+        public bool IsSeries { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is live.
+        /// </summary>
+        /// <value><c>true</c> if this instance is live; otherwise, <c>false</c>.</value>
+        public bool IsLive { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is news.
+        /// </summary>
+        /// <value><c>true</c> if this instance is news; otherwise, <c>false</c>.</value>
+        public bool IsNews { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is kids.
+        /// </summary>
+        /// <value><c>true</c> if this instance is kids; otherwise, <c>false</c>.</value>
+        public bool IsKids { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is premiere.
+        /// </summary>
+        /// <value><c>true</c> if this instance is premiere; otherwise, <c>false</c>.</value>
+        public bool IsPremiere { get; set; }
+
+        /// <summary>
+        /// Gets or sets the official rating.
+        /// </summary>
+        /// <value>The official rating.</value>
+        public string OfficialRating { get; set; }
+
+        /// <summary>
+        /// Gets or sets the community rating.
+        /// </summary>
+        /// <value>The community rating.</value>
+        public float? CommunityRating { get; set; }
+
+        /// <summary>
+        /// Supply the image path if it can be accessed directly from the file system
+        /// </summary>
+        /// <value>The image path.</value>
+        public string ImagePath { get; set; }
+
+        /// <summary>
+        /// Supply the image url if it can be downloaded
+        /// </summary>
+        /// <value>The image URL.</value>
+        public string ImageUrl { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance has image.
+        /// </summary>
+        /// <value><c>null</c> if [has image] contains no value, <c>true</c> if [has image]; otherwise, <c>false</c>.</value>
+        public bool? HasImage { get; set; }
+        /// <summary>
+        /// Gets or sets the show identifier.
+        /// </summary>
+        /// <value>The show identifier.</value>
+        public string ShowId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the date last updated.
+        /// </summary>
+        /// <value>The date last updated.</value>
+        public DateTime DateLastUpdated { get; set; }
+
+        public MyRecordingInfo()
+        {
+            Genres = new List<string>();
+        }
+    }
+
 }

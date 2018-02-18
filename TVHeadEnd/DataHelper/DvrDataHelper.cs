@@ -76,13 +76,13 @@ namespace TVHeadEnd.DataHelper
             }
         }
 
-        public Task<IEnumerable<RecordingInfo>> buildDvrInfos(CancellationToken cancellationToken)
+        public Task<IEnumerable<MyRecordingInfo>> buildDvrInfos(CancellationToken cancellationToken)
         {
-            return Task.Factory.StartNew<IEnumerable<RecordingInfo>>(() =>
+            return Task.Factory.StartNew<IEnumerable<MyRecordingInfo>>(() =>
             {
                 lock (_data)
                 {
-                    List<RecordingInfo> result = new List<RecordingInfo>();
+                    List<MyRecordingInfo> result = new List<MyRecordingInfo>();
                     foreach (KeyValuePair<string, HTSMessage> entry in _data)
                     {
                         if (cancellationToken.IsCancellationRequested)
@@ -92,7 +92,7 @@ namespace TVHeadEnd.DataHelper
                         }
 
                         HTSMessage m = entry.Value;
-                        RecordingInfo ri = new RecordingInfo();
+                        MyRecordingInfo ri = new MyRecordingInfo();
 
                         try
                         {

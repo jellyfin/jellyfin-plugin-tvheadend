@@ -268,6 +268,22 @@ namespace TVHeadEnd
             }
         }
 
+        public string GetChannelImageUrl(string channelId)
+        {
+            _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() channelId: " + channelId);
+
+            String channelIcon = _channelDataHelper.GetChannelIcon4ChannelId(channelId);
+
+            if (channelIcon.StartsWith("http"))
+            {
+                return _channelDataHelper.GetChannelIcon4ChannelId(channelId);
+            }
+            else
+            {
+                return "http://" + _tvhServerName + ":" + _httpPort + _webRoot + "/" + channelIcon; ;
+            }
+        }
+
         public Dictionary<string, string> GetHeaders()
         {
             return new Dictionary<string, string>(_headers);
@@ -372,7 +388,7 @@ namespace TVHeadEnd
             return _forceDeinterlace;
         }
 
-        public Task<IEnumerable<RecordingInfo>> BuildDvrInfos(CancellationToken cancellationToken)
+        public Task<IEnumerable<MyRecordingInfo>> BuildDvrInfos(CancellationToken cancellationToken)
         {
             return _dvrDataHelper.buildDvrInfos(cancellationToken);
         }
