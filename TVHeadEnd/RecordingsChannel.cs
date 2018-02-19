@@ -30,7 +30,7 @@ namespace TVHeadEnd
         {
             get
             {
-                return "Next Pvr Recordings";
+                return "TVHeadEnd Recordings";
             }
         }
 
@@ -38,7 +38,7 @@ namespace TVHeadEnd
         {
             get
             {
-                return "Next Pvr Recordings";
+                return "TVHeadEnd Recordings";
             }
         }
 
@@ -52,7 +52,7 @@ namespace TVHeadEnd
 
         public string HomePageUrl
         {
-            get { return "http://www.nextpvr.com/"; }
+            get { return "https://tvheadend.org"; }
         }
 
         public ChannelParentalRating ParentalRating
@@ -104,7 +104,7 @@ namespace TVHeadEnd
             {
                 return Task.FromResult(new DynamicImageResponse
                 {
-                    Path = "https://raw.githubusercontent.com/MediaBrowser/MediaBrowser.Resources/master/images/catalog/nextpvr.png",
+                    Path = "https://github.com/MediaBrowser/Tvheadend/raw/master/TVHeadEnd/Images/TVHeadEnd.png?raw=true",
                     Protocol = MediaProtocol.Http,
                     HasImage = true
                 });
