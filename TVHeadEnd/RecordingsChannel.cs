@@ -18,7 +18,7 @@ using MediaBrowser.Model.LiveTv;
 
 namespace TVHeadEnd
 {
-    public class RecordingsChannel : IChannel, IHasCacheKey, ISupportsDelete, ISupportsLatestMedia, ISupportsMediaProbe
+    public class RecordingsChannel : IChannel, IHasCacheKey, ISupportsDelete, ISupportsLatestMedia, ISupportsMediaProbe, IHasFolderAttributes
     {
         public ILiveTvManager _liveTvManager;
 
@@ -40,6 +40,14 @@ namespace TVHeadEnd
             get
             {
                 return "TVHeadEnd Recordings";
+            }
+        }
+
+        public string[] Attributes
+        {
+            get
+            {
+                return new[] { "Recordings" };
             }
         }
 
