@@ -223,6 +223,8 @@ namespace TVHeadEnd
 
         private ChannelItemInfo ConvertToChannelItem(MyRecordingInfo item)
         {
+            var path = string.IsNullOrEmpty(item.Path) ? item.Url : item.Path;
+
             var channelItem = new ChannelItemInfo
             {
                 Name = string.IsNullOrEmpty(item.EpisodeTitle) ? item.Name : item.EpisodeTitle,
@@ -240,8 +242,8 @@ namespace TVHeadEnd
                 {
                     new MediaSourceInfo
                     {
-                        Path = item.Path,
-                        Protocol = item.Path.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? MediaProtocol.Http : MediaProtocol.File,
+                        Path = path,
+                        Protocol = path.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? MediaProtocol.Http : MediaProtocol.File,
                         Id = item.Id
                     }
                 },

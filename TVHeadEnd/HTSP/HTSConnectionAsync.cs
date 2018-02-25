@@ -60,25 +60,40 @@ namespace TVHeadEnd.HTSP
 
         public void stop()
         {
-            if (_receiveHandlerThread != null && _receiveHandlerThread.IsAlive)
+            try
             {
-                _receiveHandlerThread.Abort();
+                if (_receiveHandlerThread != null && _receiveHandlerThread.IsAlive)
+                {
+                    _receiveHandlerThread.Abort();
+                }
+                if (_messageBuilderThread != null && _messageBuilderThread.IsAlive)
+                {
+                    _messageBuilderThread.Abort();
+                }
+                if (_sendingHandlerThread != null && _sendingHandlerThread.IsAlive)
+                {
+                    _sendingHandlerThread.Abort();
+                }
+                if (_messageDistributorThread != null && _messageDistributorThread.IsAlive)
+                {
+                    _messageDistributorThread.Abort();
+                }
             }
-            if (_messageBuilderThread != null && _messageBuilderThread.IsAlive)
+            catch
             {
-                _messageBuilderThread.Abort();
+
             }
-            if (_sendingHandlerThread != null && _sendingHandlerThread.IsAlive)
+
+            try
             {
-                _sendingHandlerThread.Abort();
+                if (_socket != null && _socket.Connected)
+                {
+                    _socket.Close();
+                }
             }
-            if (_messageDistributorThread != null && _messageDistributorThread.IsAlive)
+            catch
             {
-                _messageDistributorThread.Abort();
-            }
-            if (_socket != null && _socket.Connected)
-            {
-                _socket.Close();
+
             }
             _needsRestart = true;
             _connected = false;
