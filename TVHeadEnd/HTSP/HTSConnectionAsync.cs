@@ -39,6 +39,11 @@ namespace TVHeadEnd.HTSP
         private Thread _sendingHandlerThread;
         private Thread _messageDistributorThread;
 
+        private CancellationTokenSource _receiveHandlerThreadTokenSource;
+        private CancellationTokenSource _messageBuilderThreadTokenSource;
+        private CancellationTokenSource _sendingHandlerThreadTokenSource;
+        private CancellationTokenSource _messageDistributorThreadTokenSource;
+
         private Socket _socket = null;
 
         public HTSConnectionAsync(HTSConnectionListener listener, String clientName, String clientVersion, ILogger logger)
@@ -56,6 +61,11 @@ namespace TVHeadEnd.HTSP
             _receivedMessagesQueue = new SizeQueue<HTSMessage>(int.MaxValue);
             _messagesForSendQueue = new SizeQueue<HTSMessage>(int.MaxValue);
             _responseHandlers = new Dictionary<int, HTSResponseHandler>();
+
+            _receiveHandlerThreadTokenSource = new CancellationTokenSource();
+            _messageBuilderThreadTokenSource = new CancellationTokenSource();
+            _sendingHandlerThreadTokenSource = new CancellationTokenSource();
+            _messageDistributorThreadTokenSource = new CancellationTokenSource();
         }
 
         public void stop()
@@ -64,19 +74,19 @@ namespace TVHeadEnd.HTSP
             {
                 if (_receiveHandlerThread != null && _receiveHandlerThread.IsAlive)
                 {
-                    _receiveHandlerThread.Abort();
+                    _receiveHandlerThreadTokenSource.Cancel();
                 }
                 if (_messageBuilderThread != null && _messageBuilderThread.IsAlive)
                 {
-                    _messageBuilderThread.Abort();
+                    _messageBuilderThreadTokenSource.Cancel();
                 }
                 if (_sendingHandlerThread != null && _sendingHandlerThread.IsAlive)
                 {
-                    _sendingHandlerThread.Abort();
+                    _sendingHandlerThreadTokenSource.Cancel();
                 }
                 if (_messageDistributorThread != null && _messageDistributorThread.IsAlive)
                 {
-                    _messageDistributorThread.Abort();
+                    _messageDistributorThreadTokenSource.Cancel();
                 }
             }
             catch
@@ -148,6 +158,8 @@ namespace TVHeadEnd.HTSP
                     Thread.Sleep(2000);
                 }
             }
+
+            
 
             ThreadStart ReceiveHandlerRef = new ThreadStart(ReceiveHandler);
             _receiveHandlerThread = new Thread(ReceiveHandlerRef);
@@ -330,6 +342,10 @@ namespace TVHeadEnd.HTSP
             Boolean threadOk = true;
             while (_connected && threadOk)
             {
+                if (_sendingHandlerThreadTokenSource.IsCancellationRequested)
+                {
+                    return;
+                }
                 try
                 {
                     HTSMessage message = _messagesForSendQueue.Dequeue();
@@ -341,13 +357,9 @@ namespace TVHeadEnd.HTSP
                             data2send.Length + "\nMessage: " + message.ToString());
                     }
                 }
-                catch (ThreadAbortException)
-                {
-                    threadOk = false;
-                    Thread.ResetAbort();
-                }
                 catch (Exception ex)
                 {
+                    threadOk = false;
                     _logger.Error("[TVHclient] SendingHandler caught exception : {0}", ex.ToString());
                     if (_listener != null)
                     {
@@ -367,15 +379,14 @@ namespace TVHeadEnd.HTSP
             byte[] readBuffer = new byte[1024];
             while (_connected && threadOk)
             {
+                if (_receiveHandlerThreadTokenSource.IsCancellationRequested)
+                {
+                    return;
+                }
                 try
                 {
                     int bytesReveived = _socket.Receive(readBuffer);
                     _buffer.appendCount(readBuffer, bytesReveived);
-                }
-                catch (ThreadAbortException)
-                {
-                    threadOk = false;
-                    Thread.ResetAbort();
                 }
                 catch (Exception ex)
                 {
@@ -397,6 +408,10 @@ namespace TVHeadEnd.HTSP
             Boolean threadOk = true;
             while (_connected && threadOk)
             {
+                if (_messageBuilderThreadTokenSource.IsCancellationRequested)
+                {
+                    return;
+                }
                 try
                 {
                     byte[] lengthInformation = _buffer.getFromStart(4);
@@ -405,13 +420,9 @@ namespace TVHeadEnd.HTSP
                     HTSMessage response = HTSMessage.parse(messageData, _logger);
                     _receivedMessagesQueue.Enqueue(response);
                 }
-                catch (ThreadAbortException)
-                {
-                    threadOk = false;
-                    Thread.ResetAbort();
-                }
                 catch (Exception ex)
                 {
+                    threadOk = false;
                     if (_listener != null)
                     {
                         _listener.onError(ex);
@@ -429,6 +440,10 @@ namespace TVHeadEnd.HTSP
             Boolean threadOk = true;
             while (_connected && threadOk)
             {
+                if (_messageDistributorThreadTokenSource.IsCancellationRequested)
+                {
+                    return;
+                }
                 try
                 {
                     HTSMessage response = _receivedMessagesQueue.Dequeue();
@@ -459,13 +474,9 @@ namespace TVHeadEnd.HTSP
                     }
 
                 }
-                catch (ThreadAbortException)
-                {
-                    threadOk = false;
-                    Thread.ResetAbort();
-                }
                 catch (Exception ex)
                 {
+                    threadOk = false;
                     if (_listener != null)
                     {
                         _listener.onError(ex);
