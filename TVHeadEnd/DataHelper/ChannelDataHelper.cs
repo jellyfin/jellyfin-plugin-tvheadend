@@ -95,7 +95,12 @@ namespace TVHeadEnd.DataHelper
 
         public string GetChannelIcon4ChannelId(string channelId)
         {
-            return _piconData[channelId];
+            string result;
+            if (_piconData.TryGetValue(channelId, out result))
+            {
+                return result;
+            }
+            return result;
         }
 
         public Task<IEnumerable<ChannelInfo>> BuildChannelInfos(CancellationToken cancellationToken)

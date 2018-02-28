@@ -274,6 +274,11 @@ namespace TVHeadEnd
 
             String channelIcon = _channelDataHelper.GetChannelIcon4ChannelId(channelId);
 
+            if (string.IsNullOrEmpty(channelIcon))
+            {
+                return null;
+            }
+
             if (channelIcon.StartsWith("http"))
             {
                 return _channelDataHelper.GetChannelIcon4ChannelId(channelId);
