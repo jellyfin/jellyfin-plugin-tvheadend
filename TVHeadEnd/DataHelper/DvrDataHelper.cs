@@ -107,6 +107,28 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
+                            if (m.containsField("path"))
+                            {
+                                ri.Path = "" + m.getString("path");
+                            }
+                        }
+                        catch (InvalidCastException)
+                        {
+                        }
+
+                        try
+                        {
+                            if (m.containsField("url"))
+                            {
+                                ri.Url = "" + m.getString("url");
+                            }
+                        }
+                        catch (InvalidCastException)
+                        {
+                        }
+
+                        try
+                        {
                             if (m.containsField("channel"))
                             {
                                 ri.ChannelId = "" + m.getInt("channel");
