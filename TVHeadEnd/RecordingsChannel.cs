@@ -223,7 +223,7 @@ namespace TVHeadEnd
 
         private ChannelItemInfo ConvertToChannelItem(MyRecordingInfo item)
         {
-            var path = string.IsNullOrEmpty(item.Path) ? item.Url : item.Path;
+            var path = buildRecordingPath(item.Id);
 
             var channelItem = new ChannelItemInfo
             {
@@ -260,6 +260,30 @@ namespace TVHeadEnd
             };
 
             return channelItem;
+        }
+
+        private static string buildRecordingPath(string Id)
+        {
+            var config = Plugin.Instance.Configuration;
+            try
+            {
+                var tvhServerName = config.TVH_ServerName.Trim();
+                var httpPort = config.HTTP_Port;
+                var htspPort = config.HTSP_Port;
+                var webRoot = config.WebRoot;            
+                if (webRoot.EndsWith("/"))
+                {
+                    webRoot = webRoot.Substring(0, webRoot.Length - 1);
+                }
+                var userName = config.Username.Trim();
+                var password = config.Password.Trim();
+                return "http://" + userName + ":" + password + "@" + tvhServerName + ":" + httpPort + webRoot + "/dvrfile/" + Id;
+            }
+            catch (Exception)
+            {
+
+            }
+            return "";
         }
 
         private async Task<ChannelItemResult> GetRecordingGroups(InternalChannelItemQuery query, CancellationToken cancellationToken)
