@@ -285,7 +285,7 @@ namespace TVHeadEnd
             }
             else
             {
-                return "http://" + _tvhServerName + ":" + _httpPort + _webRoot + "/" + channelIcon; ;
+                return "http://" + _userName + ":" + _password + "@" +_tvhServerName + ":" + _httpPort + _webRoot + "/" + channelIcon;
             }
         }
 
