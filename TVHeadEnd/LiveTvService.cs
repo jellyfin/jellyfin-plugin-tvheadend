@@ -129,7 +129,14 @@ namespace TVHeadEnd
                 Boolean success = deleteAutorecResponse.getInt("success", 0) == 1;
                 if (!success)
                 {
-                    _logger.Error("[TVHclient] Can't cancel timer: '" + deleteAutorecResponse.getString("error") + "'");
+                    if (deleteAutorecResponse.containsField("error"))
+                    {
+                        _logger.Error("[TVHclient] Can't delete recording: '" + deleteAutorecResponse.getString("error") + "'");
+                    }
+                    else if (deleteAutorecResponse.containsField("noaccess"))
+                    {
+                        _logger.Error("[TVHclient] Can't delete recording: '" + deleteAutorecResponse.getString("noaccess") + "'");
+                    }
                 }
             }
         }
@@ -166,7 +173,14 @@ namespace TVHeadEnd
                 Boolean success = cancelTimerResponse.getInt("success", 0) == 1;
                 if (!success)
                 {
-                    _logger.Error("[TVHclient] Can't cancel timer: '" + cancelTimerResponse.getString("error") + "'");
+                    if (cancelTimerResponse.containsField("error"))
+                    {
+                        _logger.Error("[TVHclient] Can't cancel timer: '" + cancelTimerResponse.getString("error") + "'");
+                    }
+                    else if (cancelTimerResponse.containsField("noaccess"))
+                    {
+                        _logger.Error("[TVHclient] Can't cancel timer: '" + cancelTimerResponse.getString("noaccess") + "'");
+                    }
                 }
             }
         }
@@ -304,7 +318,14 @@ namespace TVHeadEnd
                 Boolean success = createTimerResponse.getInt("success", 0) == 1;
                 if (!success)
                 {
-                    _logger.Error("[TVHclient] Can't create timer: '" + createTimerResponse.getString("error") + "'");
+                    if (createTimerResponse.containsField("error"))
+                    {
+                        _logger.Error("[TVHclient] Can't create timer: '" + createTimerResponse.getString("error") + "'");
+                    }
+                    else if (createTimerResponse.containsField("noaccess"))
+                    {
+                        _logger.Error("[TVHclient] Can't create timer: '" + createTimerResponse.getString("noaccess") + "'");
+                    }
                 }
             }
         }
@@ -341,7 +362,14 @@ namespace TVHeadEnd
                 Boolean success = deleteRecordingResponse.getInt("success", 0) == 1;
                 if (!success)
                 {
-                    _logger.Error("[TVHclient] Can't delete recording: '" + deleteRecordingResponse.getString("error") + "'");
+                    if (deleteRecordingResponse.containsField("error"))
+                    {
+                        _logger.Error("[TVHclient] Can't delete recording: '" + deleteRecordingResponse.getString("error") + "'");
+                    }
+                    else if (deleteRecordingResponse.containsField("noaccess"))
+                    {
+                        _logger.Error("[TVHclient] Can't delete recording: '" + deleteRecordingResponse.getString("noaccess") + "'");
+                    }
                 }
             }
         }
@@ -864,7 +892,14 @@ namespace TVHeadEnd
                 Boolean success = updateTimerResponse.getInt("success", 0) == 1;
                 if (!success)
                 {
-                    _logger.Error("[TVHclient] Can't update timer: '" + updateTimerResponse.getString("error") + "'");
+                    if (updateTimerResponse.containsField("error"))
+                    {
+                        _logger.Error("[TVHclient] Can't update timer: '" + updateTimerResponse.getString("error") + "'");
+                    }
+                    else if (updateTimerResponse.containsField("noaccess"))
+                    {
+                        _logger.Error("[TVHclient] Can't update timer: '" + updateTimerResponse.getString("noaccess") + "'");
+                    }
                 }
             }
         }
