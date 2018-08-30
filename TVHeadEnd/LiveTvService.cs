@@ -605,50 +605,6 @@ namespace TVHeadEnd
             theList.ForEach(delegate(String s) { _logger.Info(prefix + s); });
         }
 
-        private void LogMediaStreamList(List<MediaStream> theList, String prefix)
-        {
-            theList.ForEach(delegate (MediaStream ms) { LogMediaStream(ms, prefix); });
-        }
-
-        private void LogMediaStream(MediaStream ms, String prefix)
-        {
-            _logger.Info(prefix + "AspectRatio             " + ms.AspectRatio);
-            _logger.Info(prefix + "AverageFrameRate        " + ms.AverageFrameRate);
-            _logger.Info(prefix + "BitDepth                " + ms.BitDepth);
-            _logger.Info(prefix + "BitRate                 " + ms.BitRate);
-            _logger.Info(prefix + "ChannelLayout           " + ms.ChannelLayout); // Object
-            _logger.Info(prefix + "Channels                " + ms.Channels);
-            _logger.Info(prefix + "Codec                   " + ms.Codec); // Object
-            _logger.Info(prefix + "CodecTag                " + ms.CodecTag); // Object
-            _logger.Info(prefix + "Comment                 " + ms.Comment);
-            _logger.Info(prefix + "DeliveryMethod          " + ms.DeliveryMethod); // Object
-            _logger.Info(prefix + "DeliveryUrl             " + ms.DeliveryUrl);
-            _logger.Info(prefix + "ExternalId              " + ms.ExternalId);
-            _logger.Info(prefix + "Height                  " + ms.Height);
-            _logger.Info(prefix + "Index                   " + ms.Index);
-            _logger.Info(prefix + "IsAnamorphic            " + ms.IsAnamorphic);
-            _logger.Info(prefix + "IsDefault               " + ms.IsDefault);
-            _logger.Info(prefix + "IsExternal              " + ms.IsExternal);
-            _logger.Info(prefix + "IsExternalUrl           " + ms.IsExternalUrl);
-            _logger.Info(prefix + "IsForced                " + ms.IsForced);
-            _logger.Info(prefix + "IsInterlaced            " + ms.IsInterlaced);
-            _logger.Info(prefix + "IsTextSubtitleStream    " + ms.IsTextSubtitleStream);
-            _logger.Info(prefix + "Language                " + ms.Language);
-            _logger.Info(prefix + "Level                   " + ms.Level);
-            _logger.Info(prefix + "PacketLength            " + ms.PacketLength);
-            _logger.Info(prefix + "Path                    " + ms.Path);
-            _logger.Info(prefix + "PixelFormat             " + ms.PixelFormat);
-            _logger.Info(prefix + "Profile                 " + ms.Profile);
-            _logger.Info(prefix + "RealFrameRate           " + ms.RealFrameRate);
-            _logger.Info(prefix + "RefFrames               " + ms.RefFrames);
-            _logger.Info(prefix + "SampleRate              " + ms.SampleRate);
-            _logger.Info(prefix + "Score                   " + ms.Score);
-            _logger.Info(prefix + "SupportsExternalStream  " + ms.SupportsExternalStream);
-            _logger.Info(prefix + "Type                    " + ms.Type); // Object
-            _logger.Info(prefix + "Width                   " + ms.Width);
-            _logger.Info(prefix + "========================");
-        }
-
         public async Task<MediaSourceInfo> GetRecordingStream(string recordingId, string mediaSourceId, CancellationToken cancellationToken)
         {
             HTSMessage getTicketMessage = new HTSMessage();
