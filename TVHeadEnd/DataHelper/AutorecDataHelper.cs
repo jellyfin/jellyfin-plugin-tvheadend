@@ -14,8 +14,6 @@ namespace TVHeadEnd.DataHelper
         private readonly ILogger _logger;
         private readonly Dictionary<string, HTSMessage> _data;
 
-        private readonly DateTime _initialDateTimeUTC = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
         public AutorecDataHelper(ILogger logger)
         {
             _logger = logger;
@@ -117,7 +115,7 @@ namespace TVHeadEnd.DataHelper
                         {
                         }
 
-                        sti.StartDate = DateTime.Now.ToUniversalTime();
+                        sti.StartDate = DateTimeOffset.Now.ToUniversalTime();
 
                         try
                         {
@@ -125,14 +123,14 @@ namespace TVHeadEnd.DataHelper
                             {
                                 int retentionInDays = m.getInt("retention");
 
-                                if (DateTime.MaxValue.AddDays(-retentionInDays) < DateTime.Now)
+                                if (DateTimeOffset.MaxValue.AddDays(-retentionInDays) < DateTimeOffset.Now)
                                 {
                                     _logger.Error("[TVHclient] Change during 'EndDate' calculation: set retention value from '" + retentionInDays + "' to '365' days");
-                                    sti.EndDate = DateTime.Now.AddDays(365).ToUniversalTime();
+                                    sti.EndDate = DateTimeOffset.Now.AddDays(365).ToUniversalTime();
                                 }
                                 else
                                 {
-                                    sti.EndDate = DateTime.Now.AddDays(retentionInDays).ToUniversalTime();
+                                    sti.EndDate = DateTimeOffset.Now.AddDays(retentionInDays).ToUniversalTime();
                                 }
                             }
                         }
@@ -302,9 +300,9 @@ namespace TVHeadEnd.DataHelper
             return result;
         }
 
-        public static int getMinutesFromMidnight(DateTime time)
+        public static int getMinutesFromMidnight(DateTimeOffset time)
         {
-            DateTime utcTime = time.ToUniversalTime();
+            var utcTime = time.ToUniversalTime();
             int hours = utcTime.Hour;
             int minute = utcTime.Minute;
             int minutes = (hours * 60) + minute;

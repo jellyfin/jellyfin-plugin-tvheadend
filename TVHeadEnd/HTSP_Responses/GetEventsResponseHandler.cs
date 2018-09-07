@@ -14,15 +14,15 @@ namespace TVHeadEnd.HTSP_Responses
     {
         private volatile Boolean _dataReady = false;
 
-        private readonly DateTime _initialDateTimeUTC = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        private readonly DateTimeOffset _initialDateTimeUTC = new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
-        private readonly DateTime _startDateTimeUtc, _endDateTimeUtc;
+        private readonly DateTimeOffset _startDateTimeUtc, _endDateTimeUtc;
         private readonly ILogger _logger;
         private readonly CancellationToken _cancellationToken;
 
         private readonly List<ProgramInfo> _result;
 
-        public GetEventsResponseHandler(DateTime startDateTimeUtc, DateTime endDateTimeUtc, ILogger logger, CancellationToken cancellationToken)
+        public GetEventsResponseHandler(DateTimeOffset startDateTimeUtc, DateTimeOffset endDateTimeUtc, ILogger logger, CancellationToken cancellationToken)
         {
             _startDateTimeUtc = startDateTimeUtc;
             _endDateTimeUtc = endDateTimeUtc;
@@ -47,8 +47,8 @@ namespace TVHeadEnd.HTSP_Responses
                     if (currEventMessage.containsField("start"))
                     {
                         long currStartTimeUnix = currEventMessage.getLong("start");
-                        DateTime currentStartDateTimeUTC = _initialDateTimeUTC.AddSeconds(currStartTimeUnix).ToUniversalTime();
-                        int compResult = DateTime.Compare(currentStartDateTimeUTC, _endDateTimeUtc);
+                        DateTimeOffset currentStartDateTimeUTC = _initialDateTimeUTC.AddSeconds(currStartTimeUnix).ToUniversalTime();
+                        int compResult = DateTimeOffset.Compare(currentStartDateTimeUTC, _endDateTimeUtc);
                         if (compResult > 0)
                         {
                             _logger.Info("[TVHclient] GetEventsResponseHandler.handleResponse: start value of event larger query stop value - skipping! \n" 
@@ -69,8 +69,8 @@ namespace TVHeadEnd.HTSP_Responses
                     if (currEventMessage.containsField("stop"))
                     {
                         long currEndTimeUnix = currEventMessage.getLong("stop");
-                        DateTime currentEndDateTimeUTC = _initialDateTimeUTC.AddSeconds(currEndTimeUnix).ToUniversalTime();
-                        int compResult = DateTime.Compare(currentEndDateTimeUTC, _startDateTimeUtc);
+                        DateTimeOffset currentEndDateTimeUTC = _initialDateTimeUTC.AddSeconds(currEndTimeUnix).ToUniversalTime();
+                        int compResult = DateTimeOffset.Compare(currentEndDateTimeUTC, _startDateTimeUtc);
                         if (compResult < 0)
                         {
                             _logger.Info("[TVHclient] GetEventsResponseHandler.handleResponse: stop value of event smaller query start value - skipping! \n"

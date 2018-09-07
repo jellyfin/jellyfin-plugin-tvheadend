@@ -197,11 +197,6 @@ namespace TVHeadEnd.HTSP
             return (byte[])_dict[name];
         }
 
-        public DateTime getDate(string name)
-        {
-            return new DateTime(getLong(name) * 1000);
-        }
-
         public byte[] BuildBytes()
         {
             if(_data != null)

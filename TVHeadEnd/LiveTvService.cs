@@ -36,7 +36,7 @@ namespace TVHeadEnd
         private volatile int _subscriptionId = 0;
 
         private readonly ILogger _logger;
-        public DateTime LastRecordingChange = DateTime.MinValue;
+        public DateTimeOffset LastRecordingChange = DateTimeOffset.MinValue;
 
         public LiveTvService(ILogger logger, IMediaEncoder mediaEncoder)
         {
@@ -115,7 +115,7 @@ namespace TVHeadEnd
             {
                 LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
                 _htsConnectionHandler.SendMessage(deleteAutorecMessage, lbrh);
-                LastRecordingChange = DateTime.UtcNow;
+                LastRecordingChange = DateTimeOffset.UtcNow;
                 return lbrh.getResponse();
             }));
 
@@ -159,7 +159,7 @@ namespace TVHeadEnd
             {
                 LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
                 _htsConnectionHandler.SendMessage(cancelTimerMessage, lbrh);
-                LastRecordingChange = DateTime.UtcNow;
+                LastRecordingChange = DateTimeOffset.UtcNow;
                 return lbrh.getResponse();
             }));
 
@@ -290,8 +290,8 @@ namespace TVHeadEnd
             HTSMessage createTimerMessage = new HTSMessage();
             createTimerMessage.Method = "addDvrEntry";
             createTimerMessage.putField("channelId", info.ChannelId);
-            createTimerMessage.putField("start", DateTimeHelper.getUnixUTCTimeFromUtcDateTime(info.StartDate));
-            createTimerMessage.putField("stop", DateTimeHelper.getUnixUTCTimeFromUtcDateTime(info.EndDate));
+            createTimerMessage.putField("start", info.StartDate.ToUnixTimeSeconds());
+            createTimerMessage.putField("stop", info.EndDate.ToUnixTimeSeconds());
             createTimerMessage.putField("startExtra", (long)(info.PrePaddingSeconds / 60));
             createTimerMessage.putField("stopExtra", (long)(info.PostPaddingSeconds / 60));
             createTimerMessage.putField("priority", _htsConnectionHandler.GetPriority()); // info.Priority delivers always 0 - no GUI
@@ -348,7 +348,7 @@ namespace TVHeadEnd
             {
                 LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
                 _htsConnectionHandler.SendMessage(deleteRecordingMessage, lbrh);
-                LastRecordingChange = DateTime.UtcNow;
+                LastRecordingChange = DateTimeOffset.UtcNow;
                 return lbrh.getResponse();
             }));
 
@@ -533,7 +533,7 @@ namespace TVHeadEnd
             throw new NotImplementedException();
         }
 
-        public async Task<IEnumerable<ProgramInfo>> GetProgramsAsync(string channelId, DateTime startDateUtc, DateTime endDateUtc, CancellationToken cancellationToken)
+        public async Task<IEnumerable<ProgramInfo>> GetProgramsAsync(string channelId, DateTimeOffset startDateUtc, DateTimeOffset endDateUtc, CancellationToken cancellationToken)
         {
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
@@ -547,7 +547,7 @@ namespace TVHeadEnd
             HTSMessage queryEvents = new HTSMessage();
             queryEvents.Method = "getEvents";
             queryEvents.putField("channelId", Convert.ToInt32(channelId));          
-            queryEvents.putField("maxTime", ((DateTimeOffset)endDateUtc).ToUnixTimeSeconds());
+            queryEvents.putField("maxTime", (endDateUtc).ToUnixTimeSeconds());
             _htsConnectionHandler.SendMessage(queryEvents, currGetEventsResponseHandler);
 
             _logger.Info("[TVHclient] GetProgramsAsync, ask TVH for events of channel '" + channelId + "'.");
@@ -810,7 +810,7 @@ namespace TVHeadEnd
         public async Task UpdateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken)
         {
             await CancelSeriesTimerAsync(info.Id, cancellationToken);
-            LastRecordingChange = DateTime.UtcNow;
+            LastRecordingChange = DateTimeOffset.UtcNow;
             // TODO add if method is implemented 
             // await CreateSeriesTimerAsync(info, cancellationToken);
         }
@@ -835,7 +835,7 @@ namespace TVHeadEnd
             {
                 LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
                 _htsConnectionHandler.SendMessage(updateTimerMessage, lbrh);
-                LastRecordingChange = DateTime.UtcNow;
+                LastRecordingChange = DateTimeOffset.UtcNow;
                 return lbrh.getResponse();
             }));
 
