@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Threading;
+using System;
 
 namespace TVHeadEnd.Helper
 {
@@ -20,12 +21,7 @@ namespace TVHeadEnd.Helper
                 {
                     Monitor.Wait(_data);
                 }
-                byte[] result = new byte[count];
-                for (int ii = 0; ii < count; ii++)
-                {
-                    result[ii] = _data[ii];
-                }
-                return result;
+                return _data.GetRange(0, count).ToArray();
             }
         }
 
@@ -37,12 +33,8 @@ namespace TVHeadEnd.Helper
                 {
                     Monitor.Wait(_data);
                 }
-                byte[] result = new byte[count];
-                for (int ii = 0; ii < count; ii++)
-                {
-                    result[ii] = _data[0];
-                    _data.RemoveAt(0);
-                }
+                byte[] result = _data.GetRange(0, count).ToArray();
+                _data.RemoveRange(0, count);
                 return result;
             }
         }
@@ -64,15 +56,9 @@ namespace TVHeadEnd.Helper
         {
             lock (_data)
             {
-                for (long ii = 0; ii < count; ii++)
-                {
-                    _data.Add(data[ii]);
-                }
-                if (_data.Count >= 1)
-                {
-                    // wake up any blocked dequeue
-                    Monitor.PulseAll(_data);
-                }
+                byte[] dataRange = new byte[count];
+                Array.Copy(data, 0, dataRange, 0, dataRange.Length);
+                appendAll(dataRange);
             }
         }
 
