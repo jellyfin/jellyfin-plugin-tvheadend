@@ -96,6 +96,25 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
+                            if (m.containsField("error"))
+                            {
+                                // When TVHeadend recordings are removed, their info can
+                                // still be kept around with a status of "completed".
+                                // The only way to identify them is from the error string
+                                // which is set to "File missing". Use that to not show
+                                // non-existing deleted recordings.
+                                if (m.getString("error").Contains("missing"))
+                                {
+                                    continue;
+                                }
+                            }
+                        }
+                        catch (InvalidCastException)
+                        {
+                        }
+
+                        try
+                        {
                             if (m.containsField("id"))
                             {
                                 ri.Id = "" + m.getInt("id");
