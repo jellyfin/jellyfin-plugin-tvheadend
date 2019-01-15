@@ -1,4 +1,4 @@
-﻿using MediaBrowser.Controller.LiveTv;
+using MediaBrowser.Controller.LiveTv;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections;

@@ -1,11 +1,3 @@
-using MediaBrowser.Controller.Drawing;
-using MediaBrowser.Controller.LiveTv;
-using MediaBrowser.Controller.MediaEncoding;
-using MediaBrowser.Model.Dto;
-using MediaBrowser.Model.Entities;
-using MediaBrowser.Model.LiveTv;
-using Microsoft.Extensions.Logging;
-using MediaBrowser.Model.MediaInfo;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -14,11 +6,18 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Drawing;
+using MediaBrowser.Controller.LiveTv;
+using MediaBrowser.Controller.MediaEncoding;
+using MediaBrowser.Model.Dto;
+using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.LiveTv;
+using MediaBrowser.Model.MediaInfo;
+using Microsoft.Extensions.Logging;
 using TVHeadEnd.Helper;
 using TVHeadEnd.HTSP;
 using TVHeadEnd.HTSP_Responses;
 using TVHeadEnd.TimeoutHelper;
-using System.Linq;
 
 namespace TVHeadEnd
 {

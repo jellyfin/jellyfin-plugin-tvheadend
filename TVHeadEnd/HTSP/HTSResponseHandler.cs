@@ -1,4 +1,3 @@
-﻿
 namespace TVHeadEnd.HTSP
 {
     public interface HTSResponseHandler
