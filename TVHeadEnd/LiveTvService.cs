@@ -453,7 +453,6 @@ namespace TVHeadEnd
 
                     // Probe the asset stream to determine available sub-streams
                     string livetvasset_probeUrl = "" + livetvasset.Path;
-                    string livetvasset_source = "LiveTV";
 
                     // If enabled, force video deinterlacing for channels
                     if(_htsConnectionHandler.GetForceDeinterlace())
@@ -570,11 +569,6 @@ namespace TVHeadEnd
             throw new NotImplementedException();
         }
 
-        public async Task<IEnumerable<RecordingInfo>> GetRecordingsAsync(CancellationToken cancellationToken)
-        {
-            return new List<RecordingInfo>();
-        }
-
         public async Task<IEnumerable<MyRecordingInfo>> GetAllRecordingsAsync(CancellationToken cancellationToken)
         {
             // retrieve all 'Pending', 'Inprogress' and 'Completed' recordings
@@ -648,7 +642,6 @@ namespace TVHeadEnd
 
                     // Set asset source and type for stream probing and logging
                     string recordingasset_probeUrl = "" + recordingasset.Path;
-                    string recordingasset_source = "Recording";
 
                     // If enabled, force video deinterlacing for recordings
                     if (_htsConnectionHandler.GetForceDeinterlace())
