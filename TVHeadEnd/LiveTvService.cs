@@ -4,7 +4,7 @@ using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.LiveTv;
-using MediaBrowser.Model.Logging;
+using Microsoft.Extensions.Logging;
 using MediaBrowser.Model.MediaInfo;
 using System;
 using System.Collections.Generic;
@@ -41,7 +41,7 @@ namespace TVHeadEnd
         public LiveTvService(ILogger logger, IMediaEncoder mediaEncoder)
         {
             //System.Diagnostics.StackTrace t = new System.Diagnostics.StackTrace();
-            logger.Info("[TVHclient] LiveTvService()");
+            logger.LogInformation("[TVHclient] LiveTvService()");
 
             _logger = logger;
 
@@ -62,17 +62,17 @@ namespace TVHeadEnd
             {
                 if (DataSourceChanged != null)
                 {
-                    _logger.Info("[TVHclient] sendDataSourceChanged called and calling EventHandler 'DataSourceChanged'");
+                    _logger.LogInformation("[TVHclient] sendDataSourceChanged called and calling EventHandler 'DataSourceChanged'");
                     DataSourceChanged(this, EventArgs.Empty);
                 }
                 else
                 {
-                    _logger.Fatal("[TVHclient] sendDataSourceChanged called but EventHandler 'DataSourceChanged' was not set by Emby!!!");
+                    _logger.LogCritical("[TVHclient] sendDataSourceChanged called but EventHandler 'DataSourceChanged' was not set by Emby!!!");
                 }
             }
             catch (Exception ex)
             {
-                _logger.Error("[TVHclient] LiveTvService.sendDataSourceChanged caught exception: " + ex.Message);
+                _logger.LogError(ex, "[TVHclient] LiveTvService.sendDataSourceChanged caught exception");
             }
         }
 
@@ -80,20 +80,20 @@ namespace TVHeadEnd
         {
             try
             {
-                _logger.Fatal("[TVHclient] sendRecordingStatusChanged 1");
+                _logger.LogCritical("[TVHclient] sendRecordingStatusChanged 1");
                 if (RecordingStatusChanged != null)
                 {
-                    _logger.Fatal("[TVHclient] sendRecordingStatusChanged 2");
+                    _logger.LogCritical("[TVHclient] sendRecordingStatusChanged 2");
                     RecordingStatusChanged(this, recordingStatusChangedEventArgs);
                 }
                 else
                 {
-                    _logger.Fatal("[TVHclient] sendRecordingStatusChanged called but EventHandler 'RecordingStatusChanged' was not set by Emby!!!");
+                    _logger.LogCritical("[TVHclient] sendRecordingStatusChanged called but EventHandler 'RecordingStatusChanged' was not set by Emby!!!");
                 }
             }
             catch (Exception ex)
             {
-                _logger.Error("[TVHclient] LiveTvService.sendRecordingStatusChanged caught exception: " + ex.Message);
+                _logger.LogError(ex, "[TVHclient] LiveTvService.sendRecordingStatusChanged caught exception");
             }
         }
 
@@ -102,7 +102,7 @@ namespace TVHeadEnd
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
-                _logger.Info("[TVHclient] CancelSeriesTimerAsync, call canceled or timed out.");
+                _logger.LogInformation("[TVHclient] CancelSeriesTimerAsync, call canceled or timed out.");
                 return;
             }
 
@@ -121,7 +121,7 @@ namespace TVHeadEnd
 
             if (twtRes.HasTimeout)
             {
-                _logger.Error("[TVHclient] Can't delete recording because of timeout");
+                _logger.LogError("[TVHclient] Can't delete recording because of timeout");
             }
             else
             {
@@ -131,11 +131,11 @@ namespace TVHeadEnd
                 {
                     if (deleteAutorecResponse.containsField("error"))
                     {
-                        _logger.Error("[TVHclient] Can't delete recording: '" + deleteAutorecResponse.getString("error") + "'");
+                        _logger.LogError("[TVHclient] Can't delete recording: '{why}'", deleteAutorecResponse.getString("error"));
                     }
                     else if (deleteAutorecResponse.containsField("noaccess"))
                     {
-                        _logger.Error("[TVHclient] Can't delete recording: '" + deleteAutorecResponse.getString("noaccess") + "'");
+                        _logger.LogError("[TVHclient] Can't delete recording: '{why}'", deleteAutorecResponse.getString("noaccess"));
                     }
                 }
             }
@@ -146,7 +146,7 @@ namespace TVHeadEnd
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
-                _logger.Info("[TVHclient] CancelTimerAsync, call canceled or timed out.");
+                _logger.LogInformation("[TVHclient] CancelTimerAsync, call canceled or timed out.");
                 return;
             }
 
@@ -165,7 +165,7 @@ namespace TVHeadEnd
 
             if (twtRes.HasTimeout)
             {
-                _logger.Error("[TVHclient] Can't cancel timer because of timeout");
+                _logger.LogError("[TVHclient] Can't cancel timer because of timeout");
             }
             else
             {
@@ -175,11 +175,11 @@ namespace TVHeadEnd
                 {
                     if (cancelTimerResponse.containsField("error"))
                     {
-                        _logger.Error("[TVHclient] Can't cancel timer: '" + cancelTimerResponse.getString("error") + "'");
+                        _logger.LogError("[TVHclient] Can't cancel timer: '{why}'", cancelTimerResponse.getString("error"));
                     }
                     else if (cancelTimerResponse.containsField("noaccess"))
                     {
-                        _logger.Error("[TVHclient] Can't cancel timer: '" + cancelTimerResponse.getString("noaccess") + "'");
+                        _logger.LogError("[TVHclient] Can't cancel timer: '{why}'", cancelTimerResponse.getString("noaccess"));
                     }
                 }
             }
@@ -189,7 +189,7 @@ namespace TVHeadEnd
         {
             await Task.Factory.StartNew<string>(() =>
             {
-                //_logger.Info("[TVHclient] CloseLiveStream for subscriptionId = " + subscriptionId);
+                //_logger.LogInformation("[TVHclient] CloseLiveStream for subscriptionId: {id}", subscriptionId);
                 return subscriptionId;
             });
         }
@@ -205,11 +205,11 @@ namespace TVHeadEnd
             //int timeOut = await WaitForInitialLoadTask(cancellationToken);
             //if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             //{
-            //    _logger.Info("[TVHclient] CreateSeriesTimerAsync, call canceled or timed out - returning empty list.");
+            //    _logger.LogInformation("[TVHclient] CreateSeriesTimerAsync, call canceled or timed out - returning empty list.");
             //    return;
             //}
 
-            ////_logger.Info("[TVHclient] CreateSeriesTimerAsync: got SeriesTimerInfo: " + dump(info));
+            ////_logger.LogInformation("[TVHclient] CreateSeriesTimerAsync: got SeriesTimerInfo: {spam}", dump(info));
 
             //HTSMessage createSeriesTimerMessage = new HTSMessage();
             //createSeriesTimerMessage.Method = "addAutorecEntry";
@@ -239,7 +239,7 @@ namespace TVHeadEnd
             //createSeriesTimerMessage.putField("comment", info.Overview);
 
 
-            ////_logger.Info("[TVHclient] CreateSeriesTimerAsync: created HTSP message: " + createSeriesTimerMessage.ToString());
+            ////_logger.LogInformation("[TVHclient] CreateSeriesTimerAsync: created HTSP message: {msg}", createSeriesTimerMessage.ToString());
 
 
             ///*
@@ -265,7 +265,7 @@ namespace TVHeadEnd
 
             //if (twtRes.HasTimeout)
             //{
-            //    _logger.Error("[TVHclient] Can't create series because of timeout");
+            //    _logger.LogError("[TVHclient] Can't create series because of timeout");
             //}
             //else
             //{
@@ -273,7 +273,7 @@ namespace TVHeadEnd
             //    Boolean success = createSeriesTimerResponse.getInt("success", 0) == 1;
             //    if (!success)
             //    {
-            //        _logger.Error("[TVHclient] Can't create series timer: '" + createSeriesTimerResponse.getString("error") + "'");
+            //        _logger.LogError("[TVHclient] Can't create series timer: '{why}'", createSeriesTimerResponse.getString("error"));
             //    }
             //}
         }
@@ -283,7 +283,7 @@ namespace TVHeadEnd
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
-                _logger.Info("[TVHclient] CreateTimerAsync, call canceled or timed out.");
+                _logger.LogInformation("[TVHclient] CreateTimerAsync, call canceled or timed out.");
                 return;
             }
 
@@ -310,7 +310,7 @@ namespace TVHeadEnd
 
             if (twtRes.HasTimeout)
             {
-                _logger.Error("[TVHclient] Can't create timer because of timeout");
+                _logger.LogError("[TVHclient] Can't create timer because of timeout");
             }
             else
             {
@@ -320,11 +320,11 @@ namespace TVHeadEnd
                 {
                     if (createTimerResponse.containsField("error"))
                     {
-                        _logger.Error("[TVHclient] Can't create timer: '" + createTimerResponse.getString("error") + "'");
+                        _logger.LogError("[TVHclient] Can't create timer: '{why}'", createTimerResponse.getString("error"));
                     }
                     else if (createTimerResponse.containsField("noaccess"))
                     {
-                        _logger.Error("[TVHclient] Can't create timer: '" + createTimerResponse.getString("noaccess") + "'");
+                        _logger.LogError("[TVHclient] Can't create timer: '{why}'", createTimerResponse.getString("noaccess"));
                     }
                 }
             }
@@ -335,7 +335,7 @@ namespace TVHeadEnd
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
-                _logger.Info("[TVHclient] DeleteRecordingAsync, call canceled or timed out.");
+                _logger.LogInformation("[TVHclient] DeleteRecordingAsync, call canceled or timed out.");
                 return;
             }
 
@@ -354,7 +354,7 @@ namespace TVHeadEnd
 
             if (twtRes.HasTimeout)
             {
-                _logger.Error("[TVHclient] Can't delete recording because of timeout");
+                _logger.LogError("[TVHclient] Can't delete recording because of timeout");
             }
             else
             {
@@ -364,11 +364,11 @@ namespace TVHeadEnd
                 {
                     if (deleteRecordingResponse.containsField("error"))
                     {
-                        _logger.Error("[TVHclient] Can't delete recording: '" + deleteRecordingResponse.getString("error") + "'");
+                        _logger.LogError("[TVHclient] Can't delete recording: '{why}'", deleteRecordingResponse.getString("error"));
                     }
                     else if (deleteRecordingResponse.containsField("noaccess"))
                     {
-                        _logger.Error("[TVHclient] Can't delete recording: '" + deleteRecordingResponse.getString("noaccess") + "'");
+                        _logger.LogError("[TVHclient] Can't delete recording: '{why}'", deleteRecordingResponse.getString("noaccess"));
                     }
                 }
             }
@@ -384,7 +384,7 @@ namespace TVHeadEnd
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
-                _logger.Info("[TVHclient] GetChannelsAsync, call canceled or timed out - returning empty list.");
+                _logger.LogInformation("[TVHclient] GetChannelsAsync, call canceled or timed out - returning empty list.");
                 return new List<ChannelInfo>();
             }
 
@@ -426,7 +426,7 @@ namespace TVHeadEnd
 
             if (twtRes.HasTimeout)
             {
-                _logger.Error("[TVHclient] Timeout obtaining playback authentication ticket from TVH");
+                _logger.LogError("[TVHclient] Timeout obtaining playback authentication ticket from TVH");
             }
             else
             {
@@ -441,7 +441,7 @@ namespace TVHeadEnd
                 if (_htsConnectionHandler.GetEnableSubsMaudios())
                 {
 
-                    _logger.Info("[TVHclient] Support for live TV subtitles and multiple audio tracks is enabled.");
+                    _logger.LogInformation("[TVHclient] Support for live TV subtitles and multiple audio tracks is enabled.");
 
                     MediaSourceInfo livetvasset = new MediaSourceInfo();
 
@@ -460,7 +460,7 @@ namespace TVHeadEnd
                     if(_htsConnectionHandler.GetForceDeinterlace())
                     {
                         
-                        _logger.Info("[TVHclient] Force video deinterlacing for all channels and recordings is enabled.");
+                        _logger.LogInformation("[TVHclient] Force video deinterlacing for all channels and recordings is enabled.");
 
                         foreach (MediaStream i in livetvasset.MediaStreams)
                         {
@@ -538,7 +538,7 @@ namespace TVHeadEnd
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
-                _logger.Info("[TVHclient] GetProgramsAsync, call canceled or timed out - returning empty list.");
+                _logger.LogInformation("[TVHclient] GetProgramsAsync, call canceled or timed out - returning empty list.");
                 return new List<ProgramInfo>();
             }
 
@@ -550,7 +550,7 @@ namespace TVHeadEnd
             queryEvents.putField("maxTime", ((DateTimeOffset)endDateUtc).ToUnixTimeSeconds());
             _htsConnectionHandler.SendMessage(queryEvents, currGetEventsResponseHandler);
 
-            _logger.Info("[TVHclient] GetProgramsAsync, ask TVH for events of channel '" + channelId + "'.");
+            _logger.LogInformation("[TVHclient] GetProgramsAsync, ask TVH for events of channel '{chanid}'.", channelId);
 
             TaskWithTimeoutRunner<IEnumerable<ProgramInfo>> twtr = new TaskWithTimeoutRunner<IEnumerable<ProgramInfo>>(TIMEOUT);
             TaskWithTimeoutResult<IEnumerable<ProgramInfo>> twtRes = await
@@ -558,7 +558,7 @@ namespace TVHeadEnd
 
             if (twtRes.HasTimeout)
             {
-                _logger.Info("[TVHclient] GetProgramsAsync, timeout during call for events of channel '" + channelId + "'.");
+                _logger.LogInformation("[TVHclient] GetProgramsAsync, timeout during call for events of channel '{chanid}'.", channelId);
                 return new List<ProgramInfo>();
             }
 
@@ -584,7 +584,7 @@ namespace TVHeadEnd
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
-                _logger.Info("[TVHclient] GetRecordingsAsync, call canceled or timed out - returning empty list.");
+                _logger.LogInformation("[TVHclient] GetRecordingsAsync, call canceled or timed out - returning empty list.");
                 return new List<MyRecordingInfo>();
             }
 
@@ -602,7 +602,8 @@ namespace TVHeadEnd
 
         private void LogStringList(List<String> theList, String prefix)
         {
-            theList.ForEach(delegate(String s) { _logger.Info(prefix + s); });
+            // TODO: Really? doublecheck that this is the way to do it, or if a single call to the logger with everything would be better.
+            theList.ForEach(delegate(String s) { _logger.LogInformation("{pfx}{string}", prefix, s); });
         }
 
         public async Task<MediaSourceInfo> GetRecordingStream(string recordingId, string mediaSourceId, CancellationToken cancellationToken)
@@ -621,7 +622,7 @@ namespace TVHeadEnd
 
             if (twtRes.HasTimeout)
             {
-                _logger.Error("[TVHclient] Timeout obtaining playback authentication ticket from TVH");
+                _logger.LogError("[TVHclient] Timeout obtaining playback authentication ticket from TVH");
             }
             else
             {
@@ -636,7 +637,7 @@ namespace TVHeadEnd
                 if (_htsConnectionHandler.GetEnableSubsMaudios())
                 {
 
-                    _logger.Info("[TVHclient] Support for live TV subtitles and multiple audio tracks is enabled.");
+                    _logger.LogInformation("[TVHclient] Support for live TV subtitles and multiple audio tracks is enabled.");
 
                     MediaSourceInfo recordingasset = new MediaSourceInfo();
 
@@ -654,7 +655,7 @@ namespace TVHeadEnd
                     if (_htsConnectionHandler.GetForceDeinterlace())
                     {
 
-                        _logger.Info("[TVHclient] Force video deinterlacing for all channels and recordings is enabled.");
+                        _logger.LogInformation("[TVHclient] Force video deinterlacing for all channels and recordings is enabled.");
 
                         foreach (MediaStream i in recordingasset.MediaStreams)
                         {
@@ -712,7 +713,7 @@ namespace TVHeadEnd
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
-                _logger.Info("[TVHclient] GetSeriesTimersAsync, call canceled ot timed out - returning empty list.");
+                _logger.LogInformation("[TVHclient] GetSeriesTimersAsync, call canceled ot timed out - returning empty list.");
                 return new List<SeriesTimerInfo>();
             }
 
@@ -733,7 +734,7 @@ namespace TVHeadEnd
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
-                _logger.Info("[TVHclient] GetStatusInfoAsync, call canceled or timed out.");
+                _logger.LogInformation("[TVHclient] GetStatusInfoAsync, call canceled or timed out.");
                 return new LiveTvServiceStatusInfo
                 {
                     Status = LiveTvServiceStatus.Unavailable
@@ -779,7 +780,7 @@ namespace TVHeadEnd
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
-                _logger.Info("[TVHclient] GetTimersAsync, call canceled or timed out - returning empty list.");
+                _logger.LogInformation("[TVHclient] GetTimersAsync, call canceled or timed out - returning empty list.");
                 return new List<TimerInfo>();
             }
 
@@ -797,7 +798,7 @@ namespace TVHeadEnd
 
         public Task RecordLiveStream(string id, CancellationToken cancellationToken)
         {
-            _logger.Info("[TVHclient] RecordLiveStream " + id);
+            _logger.LogInformation("[TVHclient] RecordLiveStream id {id}", id);
 
             throw new NotImplementedException();
         }
@@ -820,7 +821,7 @@ namespace TVHeadEnd
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
-                _logger.Info("[TVHclient] UpdateTimerAsync, call canceled or timed out.");
+                _logger.LogInformation("[TVHclient] UpdateTimerAsync, call canceled or timed out.");
                 return;
             }
 
@@ -841,7 +842,7 @@ namespace TVHeadEnd
 
             if (twtRes.HasTimeout)
             {
-                _logger.Error("[TVHclient] Can't update timer because of timeout");
+                _logger.LogError("[TVHclient] Can't update timer because of timeout");
             }
             else
             {
@@ -851,11 +852,11 @@ namespace TVHeadEnd
                 {
                     if (updateTimerResponse.containsField("error"))
                     {
-                        _logger.Error("[TVHclient] Can't update timer: '" + updateTimerResponse.getString("error") + "'");
+                        _logger.LogError("[TVHclient] Can't update timer: '{why}'", updateTimerResponse.getString("error"));
                     }
                     else if (updateTimerResponse.containsField("noaccess"))
                     {
-                        _logger.Error("[TVHclient] Can't update timer: '" + updateTimerResponse.getString("noaccess") + "'");
+                        _logger.LogError("[TVHclient] Can't update timer: '{why}'", updateTimerResponse.getString("noaccess"));
                     }
                 }
             }

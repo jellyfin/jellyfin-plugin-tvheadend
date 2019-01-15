@@ -1,10 +1,10 @@
-﻿using MediaBrowser.Controller.LiveTv;
-using MediaBrowser.Model.LiveTv;
-using MediaBrowser.Model.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.LiveTv;
+using MediaBrowser.Model.LiveTv;
+using Microsoft.Extensions.Logging;
 using TVHeadEnd.HTSP;
 
 
@@ -38,7 +38,7 @@ namespace TVHeadEnd.DataHelper
             {
                 if (_data.ContainsKey(id))
                 {
-                    _logger.Info("[TVHclient] DvrDataHelper.dvrEntryAdd id already in database - skip!" + message.ToString());
+                    _logger.LogInformation("[TVHclient] DvrDataHelper.dvrEntryAdd id already in database - skip! {m}", message.ToString());
                     return;
                 }
                 _data.Add(id, message);
@@ -53,7 +53,7 @@ namespace TVHeadEnd.DataHelper
                 HTSMessage oldMessage = _data[id];
                 if (oldMessage == null)
                 {
-                    _logger.Info("[TVHclient] DvrDataHelper.dvrEntryUpdate id not in database - skip!" + message.ToString());
+                    _logger.LogInformation("[TVHclient] DvrDataHelper.dvrEntryUpdate id not in database - skip! {m}", message.ToString());
                     return;
                 }
                 foreach (KeyValuePair<string, object> entry in message)
@@ -87,7 +87,7 @@ namespace TVHeadEnd.DataHelper
                     {
                         if (cancellationToken.IsCancellationRequested)
                         {
-                            _logger.Info("[TVHclient] DvrDataHelper.buildDvrInfos, call canceled - returning part list.");
+                            _logger.LogInformation("[TVHclient] DvrDataHelper.buildDvrInfos, call canceled - returning part list.");
                             return result;
                         }
 
@@ -240,7 +240,7 @@ namespace TVHeadEnd.DataHelper
                                         break;
 
                                     default:
-                                        _logger.Fatal("[TVHclient] DvrDataHelper.buildDvrInfos: state '" + state + "' not handled!");
+                                        _logger.LogCritical("[TVHclient] DvrDataHelper.buildDvrInfos: state '{state}' not handled!", state);
                                         continue;
                                     //break;
                                 }
@@ -315,7 +315,7 @@ namespace TVHeadEnd.DataHelper
                     {
                         if (cancellationToken.IsCancellationRequested)
                         {
-                            _logger.Info("[TVHclient] DvrDataHelper.buildDvrInfos, call canceled - returning part list.");
+                            _logger.LogInformation("[TVHclient] DvrDataHelper.buildDvrInfos, call canceled - returning part list.");
                             return result;
                         }
 

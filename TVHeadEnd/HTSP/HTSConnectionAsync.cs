@@ -1,10 +1,10 @@
-﻿using MediaBrowser.Model.Logging;
 using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using TVHeadEnd.Helper;
 using TVHeadEnd.HTSP_Responses;
 
@@ -138,9 +138,8 @@ namespace TVHeadEnd.HTSP
 
                     IPEndPoint remoteEP = new IPEndPoint(ipAddress, port);
 
-                    _logger.Info("[TVHclient] HTSConnectionAsync.open: " +
-                        "IPEndPoint = '" + remoteEP.ToString() + "'; " +
-                        "AddressFamily = '" + ipAddress.AddressFamily + "'");
+                    _logger.LogInformation("[TVHclient] HTSConnectionAsync.open: IPEndPoint = '{IP}'; AddressFamily = '{AF}'",
+                        remoteEP.ToString(), ipAddress.AddressFamily);
 
                     // Create a TCP/IP  socket.
                     _socket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
@@ -149,11 +148,11 @@ namespace TVHeadEnd.HTSP
                     _socket.Connect(remoteEP);
 
                     _connected = true;
-                    _logger.Info("[TVHclient] HTSConnectionAsync.open: socket connected.");
+                    _logger.LogInformation("[TVHclient] HTSConnectionAsync.open: socket connected.");
                 }
                 catch (Exception ex)
                 {
-                    _logger.Error("[TVHclient] HTSConnectionAsync.open: caught exception : {0}", ex.Message);
+                    _logger.LogError(ex, "[TVHclient] HTSConnectionAsync.open: caught exception");
 
                     Thread.Sleep(2000);
                 }
@@ -186,7 +185,7 @@ namespace TVHeadEnd.HTSP
 
         public Boolean authenticate(String username, String password)
         {
-            _logger.Info("[TVHclient] HTSConnectionAsync.authenticate: start");
+            _logger.LogInformation("[TVHclient] HTSConnectionAsync.authenticate: start");
 
             HTSMessage helloMessage = new HTSMessage();
             helloMessage.Method = "hello";
@@ -207,7 +206,7 @@ namespace TVHeadEnd.HTSP
                 else
                 {
                     _serverProtocolVersion = -1;
-                    _logger.Info("[TVHclient] HTSConnectionAsync.authenticate: hello don't deliver required field 'htspversion' - htsp wrong implemented on tvheadend side.");
+                    _logger.LogInformation("[TVHclient] HTSConnectionAsync.authenticate: hello don't deliver required field 'htspversion' - htsp wrong implemented on tvheadend side.");
                 }
 
                 if (helloResponse.containsField("servername"))
@@ -217,7 +216,7 @@ namespace TVHeadEnd.HTSP
                 else
                 {
                     _servername = "n/a";
-                    _logger.Info("[TVHclient] HTSConnectionAsync.authenticate: hello don't deliver required field 'servername' - htsp wrong implemented on tvheadend side.");
+                    _logger.LogInformation("[TVHclient] HTSConnectionAsync.authenticate: hello don't deliver required field 'servername' - htsp wrong implemented on tvheadend side.");
                 }
                 
                 if (helloResponse.containsField("serverversion"))
@@ -227,7 +226,7 @@ namespace TVHeadEnd.HTSP
                 else
                 {
                     _serverversion = "n/a";
-                    _logger.Info("[TVHclient] HTSConnectionAsync.authenticate: hello don't deliver required field 'serverversion' - htsp wrong implemented on tvheadend side.");
+                    _logger.LogInformation("[TVHclient] HTSConnectionAsync.authenticate: hello don't deliver required field 'serverversion' - htsp wrong implemented on tvheadend side.");
                 }
                 
                 byte[] salt = null;
@@ -238,7 +237,7 @@ namespace TVHeadEnd.HTSP
                 else
                 {
                     salt = new byte[0];
-                    _logger.Info("[TVHclient] HTSConnectionAsync.authenticate: hello don't deliver required field 'challenge' - htsp wrong implemented on tvheadend side.");
+                    _logger.LogInformation("[TVHclient] HTSConnectionAsync.authenticate: hello don't deliver required field 'challenge' - htsp wrong implemented on tvheadend side.");
                 }
 
                 byte[] digest = SHA1helper.GenerateSaltedSHA1(password, salt);
@@ -267,7 +266,7 @@ namespace TVHeadEnd.HTSP
                             }
                             else
                             {
-                                _logger.Info("[TVHclient] HTSConnectionAsync.authenticate: getDiskSpace don't deliver required field 'freediskspace' - htsp wrong implemented on tvheadend side.");
+                                _logger.LogInformation("[TVHclient] HTSConnectionAsync.authenticate: getDiskSpace don't deliver required field 'freediskspace' - htsp wrong implemented on tvheadend side.");
                             }
                             if (diskSpaceResponse.containsField("totaldiskspace"))
                             {
@@ -275,7 +274,7 @@ namespace TVHeadEnd.HTSP
                             }
                              else
                             {
-                                _logger.Info("[TVHclient] HTSConnectionAsync.authenticate: getDiskSpace don't deliver required field 'totaldiskspace' - htsp wrong implemented on tvheadend side.");
+                                _logger.LogInformation("[TVHclient] HTSConnectionAsync.authenticate: getDiskSpace don't deliver required field 'totaldiskspace' - htsp wrong implemented on tvheadend side.");
                             }
 
                             _diskSpace = freeDiskSpace  + "GB / "  + totalDiskSpace + "GB";
@@ -286,11 +285,11 @@ namespace TVHeadEnd.HTSP
                         sendMessage(enableAsyncMetadataMessage, null);
                     }
 
-                    _logger.Info("[TVHclient] HTSConnectionAsync.authenticate: authenticated = " + auth);
+                    _logger.LogInformation("[TVHclient] HTSConnectionAsync.authenticate: authenticated = {m}", auth);
                     return auth;
                 }
             }
-            _logger.Error("[TVHclient] HTSConnectionAsync.authenticate: no hello response");
+            _logger.LogError("[TVHclient] HTSConnectionAsync.authenticate: no hello response");
             return false;
         }
 
@@ -353,21 +352,21 @@ namespace TVHeadEnd.HTSP
                     int bytesSent = _socket.Send(data2send);
                     if (bytesSent != data2send.Length)
                     {
-                        _logger.Error("[TVHclient] SendingHandler: Sending not complete! \nBytes sent: " + bytesSent + "\nMessage bytes: " +
-                            data2send.Length + "\nMessage: " + message.ToString());
+                        _logger.LogError("[TVHclient] SendingHandler: Sending not complete! \nBytes sent: {txbytes}\nMessage bytes: " +
+                            "{msgbytes}\nMessage: {msg}", bytesSent, data2send.Length, message.ToString());
                     }
                 }
                 catch (Exception ex)
                 {
                     threadOk = false;
-                    _logger.Error("[TVHclient] SendingHandler caught exception : {0}", ex.ToString());
+                    _logger.LogError(ex, "[TVHclient] SendingHandler caught exception");
                     if (_listener != null)
                     {
                         _listener.onError(ex);
                     }
                     else
                     {
-                        _logger.ErrorException("[TVHclient] SendingHandler caught exception : {0} but no error listener is configured!!!", ex, ex.ToString());
+                        _logger.LogError(ex, "[TVHclient] SendingHandler caught exception, but no error listener is configured!!!");
                     }
                 }
             }
@@ -397,7 +396,7 @@ namespace TVHeadEnd.HTSP
                     }
                     else
                     {
-                        _logger.ErrorException("[TVHclient] ReceiveHandler caught exception : {0} but no error listener is configured!!!", ex, ex.ToString());
+                        _logger.LogError(ex, "[TVHclient] ReceiveHandler caught exception, but no error listener is configured!!!");
                     }
                 }
             }
@@ -429,7 +428,7 @@ namespace TVHeadEnd.HTSP
                     }
                     else
                     {
-                        _logger.ErrorException("[TVHclient] MessageBuilder caught exception : {0} but no error listener is configured!!!", ex, ex.ToString());
+                        _logger.LogError(ex, "[TVHclient] MessageBuilder caught exception, but no error listener is configured!!!");
                     }
                 }
             }
@@ -461,7 +460,7 @@ namespace TVHeadEnd.HTSP
                         }
                         else
                         {
-                            _logger.Fatal("[TVHclient] MessageDistributor: HTSResponseHandler for seq = '" + seqNo + "' not found!");
+                            _logger.LogCritical("[TVHclient] MessageDistributor: HTSResponseHandler for seq = '{seq}' not found!", seqNo);
                         }
                     }
                     else
@@ -483,7 +482,7 @@ namespace TVHeadEnd.HTSP
                     }
                     else
                     {
-                        _logger.ErrorException("[TVHclient] MessageBuilder caught exception : {0} but no error listener is configured!!!", ex, ex.ToString());
+                        _logger.LogError(ex, "[TVHclient] MessageBuilder caught exception, but no error listener is configured!!!");
                     }
                 }
             }

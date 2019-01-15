@@ -1,10 +1,10 @@
-﻿using MediaBrowser.Controller.LiveTv;
-using MediaBrowser.Model.LiveTv;
-using MediaBrowser.Model.Logging;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.LiveTv;
+using MediaBrowser.Model.LiveTv;
+using Microsoft.Extensions.Logging;
 using TVHeadEnd.HTSP;
 
 namespace TVHeadEnd.DataHelper
@@ -82,7 +82,7 @@ namespace TVHeadEnd.DataHelper
                     {
                         if (cancellationToken.IsCancellationRequested)
                         {
-                            _logger.Info("[TVHclient] TunerDataHelper.buildTunerInfos: cancel requst received. Returning only partly results");
+                            _logger.LogInformation("[TVHclient] TunerDataHelper.buildTunerInfos: cancel requst received. Returning only partly results");
                             return result;
                         }
 

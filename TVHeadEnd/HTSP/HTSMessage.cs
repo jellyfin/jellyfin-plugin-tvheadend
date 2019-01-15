@@ -1,4 +1,4 @@
-﻿using MediaBrowser.Model.Logging;
+﻿using Microsoft.Extensions.Logging;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -74,8 +74,8 @@ namespace TVHeadEnd.HTSP
             }
             catch(InvalidCastException ice)
             {
-                _logger.Fatal("[TVHclient] Caught InvalidCastException for field name '" + name + "'. Expected  'System.Numerics.BigInteger' but got '" +
-                    _dict[name].GetType() + "'");
+                _logger.LogCritical("[TVHclient] Caught InvalidCastException for field name '{name}'. Expected 'System.Numerics.BigInteger' but got '{type}'",
+                    name, _dict[name].GetType());
                 throw ice;
             }
         }
@@ -387,7 +387,7 @@ namespace TVHeadEnd.HTSP
         {
             if (data.Length < 4)
             {
-                logger.Error("[HTSMessage.parse(byte[])] Really to short");
+                logger.LogError("[HTSMessage.parse(byte[])] Really to short");
                 return null;
             }
 
@@ -395,7 +395,7 @@ namespace TVHeadEnd.HTSP
             //Message not fully read
             if (data.Length < len + 4)
             {
-                logger.Error("[HTSMessage.parse(byte[])] not enough data for len: " + len);
+                logger.LogError("[HTSMessage.parse(byte[])] not enough data for len: {len}", len);
                 return null;
             }
 

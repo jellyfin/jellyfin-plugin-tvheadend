@@ -1,11 +1,10 @@
-﻿using MediaBrowser.Controller.LiveTv;
-using MediaBrowser.Model.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.LiveTv;
+using Microsoft.Extensions.Logging;
 using TVHeadEnd.HTSP;
-
 
 namespace TVHeadEnd.DataHelper
 {
@@ -37,7 +36,7 @@ namespace TVHeadEnd.DataHelper
             {
                 if (_data.ContainsKey(id))
                 {
-                    _logger.Info("[TVHclient] AutorecDataHelper.autorecEntryAdd id already in database - skip!" + message.ToString());
+                    _logger.LogInformation("[TVHclient] AutorecDataHelper.autorecEntryAdd id already in database - skip! {m}", message.ToString());
                     return;
                 }
                 _data.Add(id, message);
@@ -52,7 +51,7 @@ namespace TVHeadEnd.DataHelper
                 HTSMessage oldMessage = _data[id];
                 if (oldMessage == null)
                 {
-                    _logger.Info("[TVHclient] AutorecDataHelper.autorecEntryAdd id not in database - skip!" + message.ToString());
+                    _logger.LogInformation("[TVHclient] AutorecDataHelper.autorecEntryAdd id not in database - skip! {m}", message.ToString());
                     return;
                 }
                 foreach (KeyValuePair<string, object> entry in message)
@@ -87,7 +86,7 @@ namespace TVHeadEnd.DataHelper
                     {
                         if (cancellationToken.IsCancellationRequested)
                         {
-                            _logger.Info("[TVHclient] DvrDataHelper.buildDvrInfos, call canceled - returning part list.");
+                            _logger.LogInformation("[TVHclient] DvrDataHelper.buildDvrInfos, call canceled - returning part list.");
                             return result;
                         }
 
@@ -127,7 +126,7 @@ namespace TVHeadEnd.DataHelper
 
                                 if (DateTime.MaxValue.AddDays(-retentionInDays) < DateTime.Now)
                                 {
-                                    _logger.Error("[TVHclient] Change during 'EndDate' calculation: set retention value from '" + retentionInDays + "' to '365' days");
+                                    _logger.LogError("[TVHclient] Change during 'EndDate' calculation: set retention value from '{days}' to '365' days", retentionInDays);
                                     sti.EndDate = DateTime.Now.AddDays(365).ToUniversalTime();
                                 }
                                 else
@@ -138,7 +137,7 @@ namespace TVHeadEnd.DataHelper
                         }
                         catch (Exception e)
                         {
-                            _logger.Error("[TVHclient] Exception during 'EndDate' calculation: " + e.Message + "\n" + e + "\n" + m.ToString());
+                            _logger.LogError(e, "[TVHclient] Exception during 'EndDate' calculation, {m}", m.ToString());
                         }
 
                         try
