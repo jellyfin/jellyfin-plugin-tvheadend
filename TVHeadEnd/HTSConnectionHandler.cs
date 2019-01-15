@@ -89,11 +89,11 @@ namespace TVHeadEnd
         public int WaitForInitialLoad(CancellationToken cancellationToken)
         {
             ensureConnection();
-            var start = DateTimeOffset.Now;
+            DateTime start = DateTime.Now;
             while (!_initialLoadFinished || cancellationToken.IsCancellationRequested)
             {
                 Thread.Sleep(500);
-                TimeSpan duration = DateTimeOffset.Now - start;
+                TimeSpan duration = DateTime.Now - start;
                 long durationInSec = duration.Ticks / TimeSpan.TicksPerSecond;
                 if (durationInSec > 60 * 15) // 15 Min timeout, should be enough to load huge data count
                 {
