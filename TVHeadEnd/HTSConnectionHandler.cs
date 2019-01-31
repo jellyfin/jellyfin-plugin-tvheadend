@@ -1,6 +1,3 @@
-﻿using MediaBrowser.Controller.Drawing;
-using MediaBrowser.Controller.LiveTv;
-using MediaBrowser.Model.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,6 +6,9 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Drawing;
+using MediaBrowser.Controller.LiveTv;
+using Microsoft.Extensions.Logging;
 using TVHeadEnd.DataHelper;
 using TVHeadEnd.HTSP;
 
@@ -55,7 +55,7 @@ namespace TVHeadEnd
             _logger = logger;
 
             //System.Diagnostics.StackTrace t = new System.Diagnostics.StackTrace();
-            _logger.Info("[TVHclient] HTSConnectionHandler()");
+            _logger.LogInformation("[TVHclient] HTSConnectionHandler()");
 
             _channelDataHelper = new ChannelDataHelper(logger);
             _dvrDataHelper = new DvrDataHelper(logger);
@@ -89,11 +89,11 @@ namespace TVHeadEnd
         public int WaitForInitialLoad(CancellationToken cancellationToken)
         {
             ensureConnection();
-            var start = DateTimeOffset.Now;
+            DateTime start = DateTime.Now;
             while (!_initialLoadFinished || cancellationToken.IsCancellationRequested)
             {
                 Thread.Sleep(500);
-                TimeSpan duration = DateTimeOffset.Now - start;
+                TimeSpan duration = DateTime.Now - start;
                 long durationInSec = duration.Ticks / TimeSpan.TicksPerSecond;
                 if (durationInSec > 60 * 15) // 15 Min timeout, should be enough to load huge data count
                 {
@@ -110,21 +110,21 @@ namespace TVHeadEnd
             if (string.IsNullOrEmpty(config.TVH_ServerName))
             {
                 string message = "[TVHclient] HTSConnectionHandler.ensureConnection: TVH-Server name must be configured.";
-                _logger.Error(message);
+                _logger.LogError(message);
                 throw new InvalidOperationException(message);
             }
 
             if (string.IsNullOrEmpty(config.Username))
             {
                 string message = "[TVHclient] HTSConnectionHandler.ensureConnection: Username must be configured.";
-                _logger.Error(message);
+                _logger.LogError(message);
                 throw new InvalidOperationException(message);
             }
 
             if (string.IsNullOrEmpty(config.Password))
             {
                 string message = "[TVHclient] HTSConnectionHandler.ensureConnection: Password must be configured.";
-                _logger.Error(message);
+                _logger.LogError(message);
                 throw new InvalidOperationException(message);
             }
 
@@ -137,7 +137,7 @@ namespace TVHeadEnd
             if (_priority < 0 || _priority > 4)
             {
                 _priority = 2;
-                _logger.Info("[TVHclient] HTSConnectionHandler.ensureConnection: Priority was out of range [0-4] - set to 2");
+                _logger.LogInformation("[TVHclient] HTSConnectionHandler.ensureConnection: Priority was out of range [0-4] - set to 2");
             }
 
             _tvhServerName = config.TVH_ServerName.Trim();
@@ -170,11 +170,11 @@ namespace TVHeadEnd
         {
             try
             {
-                _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() channelId: " + channelId);
+                _logger.LogInformation("[TVHclient] HTSConnectionHandler.GetChannelImage() channelId: {id}", channelId);
 
                 String channelIcon = _channelDataHelper.GetChannelIcon4ChannelId(channelId);
 
-                _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() channelIcon: " + channelIcon);
+                _logger.LogInformation("[TVHclient] HTSConnectionHandler.GetChannelImage() channelIcon: {ico}", channelIcon);
 
                 WebRequest request = null;
 
@@ -182,7 +182,7 @@ namespace TVHeadEnd
                 {
                     request = WebRequest.Create(channelIcon);
 
-                    _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() WebRequest: " + channelIcon);
+                    _logger.LogInformation("[TVHclient] HTSConnectionHandler.GetChannelImage() WebRequest: {ico}", channelIcon);
                 }
                 else
                 {
@@ -190,7 +190,7 @@ namespace TVHeadEnd
                     request = WebRequest.Create(requestStr);
                     request.Headers["Authorization"] = _headers["Authorization"];
 
-                    _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() WebRequest: " + requestStr);
+                    _logger.LogInformation("[TVHclient] HTSConnectionHandler.GetChannelImage() WebRequest: {req}", requestStr);
                 }
 
 
@@ -205,42 +205,42 @@ namespace TVHeadEnd
                     String suffix = channelIcon.Substring(lastDot + 1);
                     suffix = suffix.ToLower();
 
-                    _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() image suffix: " + suffix);
+                    _logger.LogInformation("[TVHclient] HTSConnectionHandler.GetChannelImage() image suffix: {sfx}", suffix);
 
                     switch (suffix)
                     {
                         case "bmp":
                             imageStream.Stream = stream;
                             imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Bmp;
-                            _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() using fix image type BMP.");
+                            _logger.LogInformation("[TVHclient] HTSConnectionHandler.GetChannelImage() using fix image type BMP.");
                             break;
 
                         case "gif":
                             imageStream.Stream = stream;
                             imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Gif;
-                            _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() using fix image type GIF.");
+                            _logger.LogInformation("[TVHclient] HTSConnectionHandler.GetChannelImage() using fix image type GIF.");
                             break;
 
                         case "jpg":
                             imageStream.Stream = stream;
                             imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Jpg;
-                            _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() using fix image type JPG.");
+                            _logger.LogInformation("[TVHclient] HTSConnectionHandler.GetChannelImage() using fix image type JPG.");
                             break;
 
                         case "png":
                             imageStream.Stream = stream;
                             imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Png;
-                            _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() using fix image type PNG.");
+                            _logger.LogInformation("[TVHclient] HTSConnectionHandler.GetChannelImage() using fix image type PNG.");
                             break;
 
                         case "webp":
                             imageStream.Stream = stream;
                             imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Webp;
-                            _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() using fix image type WEBP.");
+                            _logger.LogInformation("[TVHclient] HTSConnectionHandler.GetChannelImage() using fix image type WEBP.");
                             break;
 
                         default:
-                            _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() unkown image type '" + suffix + "' - return as PNG");
+                            _logger.LogInformation("[TVHclient] HTSConnectionHandler.GetChannelImage() unkown image type '{sfx}' - return as PNG", suffix);
                             //Image image = Image.FromStream(stream);
                             //imageStream.Stream = ImageToPNGStream(image);
                             //imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Png;
@@ -251,7 +251,7 @@ namespace TVHeadEnd
                 }
                 else
                 {
-                    _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() no image type in suffix of channelImage name '" + channelIcon + "' found - return as PNG.");
+                    _logger.LogInformation("[TVHclient] HTSConnectionHandler.GetChannelImage() no image type in suffix of channelImage name '{ico}' found - return as PNG.", channelIcon);
                     //Image image = Image.FromStream(stream);
                     //imageStream.Stream = ImageToPNGStream(image);
                     //imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Png;
@@ -263,14 +263,14 @@ namespace TVHeadEnd
             }
             catch (Exception ex)
             {
-                _logger.Error("[TVHclient] HTSConnectionHandler.GetChannelImage() caught exception: " + ex.Message);
+                _logger.LogError(ex, "[TVHclient] HTSConnectionHandler.GetChannelImage() caught exception");
                 return null;
             }
         }
 
         public string GetChannelImageUrl(string channelId)
         {
-            _logger.Info("[TVHclient] HTSConnectionHandler.GetChannelImage() channelId: " + channelId);
+            _logger.LogInformation("[TVHclient] HTSConnectionHandler.GetChannelImage() channelId: {id}", channelId);
 
             String channelIcon = _channelDataHelper.GetChannelIcon4ChannelId(channelId);
 
@@ -304,10 +304,10 @@ namespace TVHeadEnd
 
         private void ensureConnection()
         {
-            //_logger.Info("[TVHclient] HTSConnectionHandler.ensureConnection()");
+            //_logger.LogInformation("[TVHclient] HTSConnectionHandler.ensureConnection()");
             if (_htsConnection == null || _htsConnection.needsRestart())
             {
-                _logger.Info("[TVHclient] HTSConnectionHandler.ensureConnection() : create new HTS-Connection");
+                _logger.LogInformation("[TVHclient] HTSConnectionHandler.ensureConnection() : create new HTS-Connection");
                 Version version = Assembly.GetEntryAssembly().GetName().Version;
                 _htsConnection = new HTSConnectionAsync(this, "TVHclient4Emby-" + version.ToString(), "" + HTSMessage.HTSP_VERSION, _logger);
                 _connected = false;
@@ -317,18 +317,15 @@ namespace TVHeadEnd
             {
                 if (!_connected)
                 {
-                    _logger.Info("[TVHclient] HTSConnectionHandler.ensureConnection: Used connection parameters: " +
-                        "TVH Server = '" + _tvhServerName + "'; " +
-                        "HTTP Port = '" + _httpPort + "'; " +
-                        "HTSP Port = '" + _htspPort + "'; " +
-                        "Web-Root = '" + _webRoot + "'; " +
-                        "User = '" + _userName + "'; " +
-                        "Password set = '" + (_password.Length > 0) + "'");
+                    _logger.LogInformation("[TVHclient] HTSConnectionHandler.ensureConnection: Used connection parameters: " +
+                        "TVH Server = '{servername}'; HTTP Port = '{httpport}'; HTSP Port = '{htspport}'; Web-Root = '{webroot}'; " +
+                        "User = '{user}'; Password set = '{passexists}'",
+                        _tvhServerName, _httpPort, _htspPort, _webRoot, _userName, (_password.Length > 0));
 
                     _htsConnection.open(_tvhServerName, _htspPort);
                     _connected = _htsConnection.authenticate(_userName, _password);
 
-                    _logger.Info("[TVHclient] HTSConnectionHandler.ensureConnection: connection established " + _connected);
+                    _logger.LogInformation("[TVHclient] HTSConnectionHandler.ensureConnection: connection established {c}", _connected);
                 }
             }
         }
@@ -410,7 +407,7 @@ namespace TVHeadEnd
 
         public void onError(Exception ex)
         {
-            _logger.ErrorException("[TVHclient] HTSConnectionHandler recorded a HTSP error: " + ex.Message, ex);
+            _logger.LogError(ex, "[TVHclient] HTSConnectionHandler recorded a HTSP error");
             _htsConnection.stop();
             _htsConnection = null;
             _connected = false;
@@ -427,7 +424,7 @@ namespace TVHeadEnd
                     case "tagAdd":
                     case "tagUpdate":
                     case "tagDelete":
-                        //_logger.Fatal("[TVHclient] tad add/update/delete" + response.ToString());
+                        //_logger.LogCritical("[TVHclient] tad add/update/delete {resp}", response.ToString());
                         break;
 
                     case "channelAdd":
@@ -467,23 +464,23 @@ namespace TVHeadEnd
                     //case "subscriptionSkip":
                     //case "subscriptionSpeed":
                     //case "subscriptionStatus":
-                    //    _logger.Fatal("[TVHclient] subscription events " + response.ToString());
+                    //    _logger.LogCritical("[TVHclient] subscription events {resp}", response.ToString());
                     //    break;
 
                     //case "queueStatus":
-                    //    _logger.Fatal("[TVHclient] queueStatus event " + response.ToString());
+                    //    _logger.LogCritical("[TVHclient] queueStatus event {resp}", response.ToString());
                     //    break;
 
                     //case "signalStatus":
-                    //    _logger.Fatal("[TVHclient] signalStatus event " + response.ToString());
+                    //    _logger.LogCritical("[TVHclient] signalStatus event {resp}", response.ToString());
                     //    break;
 
                     //case "timeshiftStatus":
-                    //    _logger.Fatal("[TVHclient] timeshiftStatus event " + response.ToString());
+                    //    _logger.LogCritical("[TVHclient] timeshiftStatus event {resp}", response.ToString());
                     //    break;
 
                     //case "muxpkt": // streaming data
-                    //    _logger.Fatal("[TVHclient] muxpkt event " + response.ToString());
+                    //    _logger.LogCritical("[TVHclient] muxpkt event {resp}", response.ToString());
                     //    break;
 
                     case "initialSyncCompleted":
@@ -491,7 +488,7 @@ namespace TVHeadEnd
                         break;
 
                     default:
-                        //_logger.Fatal("[TVHclient] Method '" + response.Method + "' not handled in LiveTvService.cs");
+                        //_logger.LogCritical("[TVHclient] Method '{method}' not handled in LiveTvService.cs", response.Method);
                         break;
                 }
             }

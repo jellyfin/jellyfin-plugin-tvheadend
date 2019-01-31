@@ -1,4 +1,4 @@
-﻿
+
 namespace TVHeadEnd.Helper
 {
     public class ByteBuffer

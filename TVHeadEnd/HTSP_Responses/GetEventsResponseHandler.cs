@@ -1,5 +1,5 @@
-﻿using MediaBrowser.Controller.LiveTv;
-using MediaBrowser.Model.Logging;
+using MediaBrowser.Controller.LiveTv;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -14,15 +14,15 @@ namespace TVHeadEnd.HTSP_Responses
     {
         private volatile Boolean _dataReady = false;
 
-        private readonly DateTimeOffset _initialDateTimeUTC = new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        private readonly DateTime _initialDateTimeUTC = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        private readonly DateTimeOffset _startDateTimeUtc, _endDateTimeUtc;
+        private readonly DateTime _startDateTimeUtc, _endDateTimeUtc;
         private readonly ILogger _logger;
         private readonly CancellationToken _cancellationToken;
 
         private readonly List<ProgramInfo> _result;
 
-        public GetEventsResponseHandler(DateTimeOffset startDateTimeUtc, DateTimeOffset endDateTimeUtc, ILogger logger, CancellationToken cancellationToken)
+        public GetEventsResponseHandler(DateTime startDateTimeUtc, DateTime endDateTimeUtc, ILogger logger, CancellationToken cancellationToken)
         {
             _startDateTimeUtc = startDateTimeUtc;
             _endDateTimeUtc = endDateTimeUtc;
@@ -35,7 +35,7 @@ namespace TVHeadEnd.HTSP_Responses
 
         public void handleResponse(HTSMessage response)
         {
-            _logger.Info("[TVHclient] GetEventsResponseHandler.handleResponse: received answer from TVH server\n" + response.ToString()); 
+            _logger.LogInformation("[TVHclient] GetEventsResponseHandler.handleResponse: received answer from TVH server: {msg}", response.ToString()); 
 
             if (response.containsField("events"))
             {
@@ -47,44 +47,44 @@ namespace TVHeadEnd.HTSP_Responses
                     if (currEventMessage.containsField("start"))
                     {
                         long currStartTimeUnix = currEventMessage.getLong("start");
-                        DateTimeOffset currentStartDateTimeUTC = _initialDateTimeUTC.AddSeconds(currStartTimeUnix).ToUniversalTime();
-                        int compResult = DateTimeOffset.Compare(currentStartDateTimeUTC, _endDateTimeUtc);
+                        DateTime currentStartDateTimeUTC = _initialDateTimeUTC.AddSeconds(currStartTimeUnix).ToUniversalTime();
+                        int compResult = DateTime.Compare(currentStartDateTimeUTC, _endDateTimeUtc);
                         if (compResult > 0)
                         {
-                            _logger.Info("[TVHclient] GetEventsResponseHandler.handleResponse: start value of event larger query stop value - skipping! \n" 
-                                + "Query start UTC dateTime: " + _startDateTimeUtc + "\n"
-                                + "Query end UTC dateTime:   " + _endDateTimeUtc + "\n"
-                                + "Event start UTC dateTime: " + currentStartDateTimeUTC + "\n"
-                                + currEventMessage.ToString());
+                            _logger.LogInformation("[TVHclient] GetEventsResponseHandler.handleResponse: start value of event larger query stop value - skipping! \n" 
+                                + "Query start UTC dateTime: {start}\n"
+                                + "Query end UTC dateTime:   {end}\n"
+                                + "Event start UTC dateTime: {currstart}\n{msg}",
+                                _startDateTimeUtc, _endDateTimeUtc, currentStartDateTimeUTC, currEventMessage.ToString());
                             continue;
                         }
                         pi.StartDate = currentStartDateTimeUTC;
                     }
                     else
                     {
-                        _logger.Info("[TVHclient] GetEventsResponseHandler.handleResponse: no start value for event - skipping! \n" + currEventMessage.ToString());
+                        _logger.LogInformation("[TVHclient] GetEventsResponseHandler.handleResponse: no start value for event - skipping!\n{msg}", currEventMessage.ToString());
                         continue;
                     }
 
                     if (currEventMessage.containsField("stop"))
                     {
                         long currEndTimeUnix = currEventMessage.getLong("stop");
-                        DateTimeOffset currentEndDateTimeUTC = _initialDateTimeUTC.AddSeconds(currEndTimeUnix).ToUniversalTime();
-                        int compResult = DateTimeOffset.Compare(currentEndDateTimeUTC, _startDateTimeUtc);
+                        DateTime currentEndDateTimeUTC = _initialDateTimeUTC.AddSeconds(currEndTimeUnix).ToUniversalTime();
+                        int compResult = DateTime.Compare(currentEndDateTimeUTC, _startDateTimeUtc);
                         if (compResult < 0)
                         {
-                            _logger.Info("[TVHclient] GetEventsResponseHandler.handleResponse: stop value of event smaller query start value - skipping! \n"
-                                + "Query start UTC dateTime: " + _startDateTimeUtc + "\n"
-                                + "Query end UTC dateTime:   " + _endDateTimeUtc + "\n"
-                                + "Event start UTC dateTime: " + currentEndDateTimeUTC + "\n"
-                                + currEventMessage.ToString());
+                            _logger.LogInformation("[TVHclient] GetEventsResponseHandler.handleResponse: stop value of event smaller query start value - skipping!\n"
+                                + "Query start UTC dateTime: {start}\n"
+                                + "Query end UTC dateTime:   {end}\n"
+                                + "Event start UTC dateTime: {currend}\n{msg}",
+                                _startDateTimeUtc, _endDateTimeUtc, currentEndDateTimeUTC, currEventMessage.ToString());
                             continue;
                         }
                         pi.EndDate = currentEndDateTimeUTC;
                     }
                     else
                     {
-                        _logger.Info("[TVHclient] GetEventsResponseHandler.handleResponse: no stop value for event - skipping! \n" + currEventMessage.ToString());
+                        _logger.LogInformation("[TVHclient] GetEventsResponseHandler.handleResponse: no stop value for event - skipping!\n{msg}", currEventMessage.ToString());
                         continue;
                     }
 
@@ -721,7 +721,7 @@ namespace TVHeadEnd.HTSP_Responses
                     //pi.Audio - MediaBrowser.Model.LiveTv.ProgramAudio
                     //pi.ProductionYear - int
 
-                    _logger.Info("[TVHclient] GetEventsResponseHandler.handleResponse: add event\n" + currEventMessage.ToString() + "\n" + createPiInfo(pi));
+                    _logger.LogInformation("[TVHclient] GetEventsResponseHandler.handleResponse: add event\n{msg}\n{msg2}", currEventMessage.ToString(), createPiInfo(pi));
 
                     _result.Add(pi);
                 }
@@ -768,7 +768,8 @@ namespace TVHeadEnd.HTSP_Responses
                 {
                     Thread.Sleep(500);
                 }
-                //_logger.Info("[TVHclient] GetEventsResponseHandler.GetEvents: channelId=" + channelId + "  / dataReady=" + _dataReady + "  / cancellationToken.IsCancellationRequested=" + cancellationToken.IsCancellationRequested);
+                //_logger.LogInformation("[TVHclient] GetEventsResponseHandler.GetEvents: channelId={cid}  / dataReady={dr}  / cancellationToken.IsCancellationRequested={cancelreq}",
+                //    channelId, _dataReady, cancellationToken.IsCancellationRequested);
                 return _result;
             });
         }
