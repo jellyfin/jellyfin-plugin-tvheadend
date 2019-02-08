@@ -1,0 +1,14 @@
+---
+name: "jellyfin-plugin-tvheadend"
+guid: "3fd018e5-5e78-4e58-b280-a0c068febee0"
+version: "1.0.0"
+nicename: "TVHeadend"
+description: "Manage TVHeadend from Jellyfin"
+overview: >
+  Manage TVHeadend from Jellyfin
+category: "General"
+artifacts:
+  - "TVHeadEnd.dll"
+build_type: "dotnet"
+dotnet_configuration: "Release"
+dotnet_framework: "netstandard2.0"
