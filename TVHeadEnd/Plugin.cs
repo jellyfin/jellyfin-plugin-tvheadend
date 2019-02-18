@@ -54,7 +54,7 @@ namespace TVHeadEnd
             }
         }
 
-        private Guid _id = new Guid("95732bbe-15ed-4293-bab2-e056ccc50159");
+        private Guid _id = new Guid("3fd018e5-5e78-4e58-b280-a0c068febee0");
         public override Guid Id
         {
             get { return _id; }
