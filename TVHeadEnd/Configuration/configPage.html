@@ -8,42 +8,42 @@
         <div data-role="content">
             <div class="content-primary">
                 <form class="TVHclientConfigurationForm">
-                    <li>
-                        <label for="txtTVH_ServerName">Tvheadend-Hostname or IP-Address:</label>
+                    <div class="inputContainer">
+                        <label for="txtTVH_ServerName" class="inputLabel">TVHeadend Hostname or IP Address</label>
                         <input type="text" id="txtTVH_ServerName" name="txtTVH_ServerName" />
-                    </li>
-                    <li>
-                        <label for="txtHTTP_Port">HTTP-Port:</label>
+                    </div>
+                    <div class="inputContainer">
+                        <label for="txtHTTP_Port" class="inputLabel">HTTP Port</label>
                         <input type="text" id="txtHTTP_Port" name="txtHTTP_Port" />
-                    </li>
-                    <li>
-                        <label for="txtHTSP_Port">HTSP-Port:</label>
+                    </div>
+                    <div class="inputContainer">
+                        <label for="txtHTSP_Port" class="inputLabel">HTSP Port</label>
                         <input type="text" id="txtHTSP_Port" name="txtHTSP_Port" />
-                    </li>
-                    <li>
-                        <label for="txtWebRoot">webroot:</label>
+                    </div>
+                    <div class="inputContainer">
+                        <label for="txtWebRoot" class="inputLabel">Web Root</label>
                         <input type="text" id="txtWebRoot" name="txtWebRoot" />
-                        <div class="fieldDescription">This path will be added to &lt;Tvheadend-Hostname or IP-Address&gt; : &lt;HTTP-Port&gt;. It should be '/' if you have no special setup.</div>
-                    </li>
-                    <li>
-                        <label for="txtUserName">User name:</label>
+                        <div class="fieldDescription">This path will be added to HOSTNAME:PORT on the end of the URL. It should be '/' if you don't have a custom Setup.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label for="txtUserName" class="inputLabel">Username</label>
                         <input type="text" id="txtUserName" name="txtUserName" />
-                    </li>
-                    <li>
-                        <label for="txtPassword">Password:</label>
+                    </div>
+                    <div class="inputContainer">
+                        <label for="txtPassword" class="inputLabel">Password</label>
                         <input type="password" id="txtPassword" name="txtPassword" />
-                    </li>
-                    <li>
-                        <label for="txtPriority">Priority of recordings:</label>
+                    </div>
+                    <div class="inputContainer">
+                        <label for="txtPriority" class="inputLabel">Priority of Recordings</label>
                         <input type="text" id="txtPriority" name="txtPriority" />
                         <div class="fieldDescription">0 = Important, 1 = High, 2 = Normal, 3 = Low, 4 = Unimportant</div>
-                    </li>
-                    <li>
-                        <label for="txtProfile">Profile for recordings:</label>
+                    </div>
+                    <div class="inputContainer">
+                        <label for="txtProfile" class="inputLabel">Profile for Recordings</label>
                         <input type="text" id="txtProfile" name="txtProfile" />
-                    </li>
+                    </div>
                     <li>
-                        <label for="selChannelType">Use this channel type for channels taged with 'Other':</label>
+                        <label for="selChannelType">Use this channel type for channels tagged with Other</label>
                         <select id="selChannelType">
                             <option>TV</option>
                             <option>Radio</option>
@@ -51,14 +51,14 @@
                         </select>
                     </li>
                     <li>
-                        <label for="chkEnableSubsMaudios">Enable live TV subtitles and multiple audio tracks (EXPERIMENTAL)</label>
+                        <label for="chkEnableSubsMaudios">Enable live TV subtitles and multiple audio tracks (Experimental)</label>
                         <input type="checkbox" id="chkEnableSubsMaudios" />
-                        <div class="fieldDescription">Note: enabling this feature have security implications (TVH username and password will appear in Emby logs and will be transmitted in clear text on the network). Configuration change requires Emby server restart.</div>
+                        <div class="fieldDescription">Note: Enabling this feature has security implications and will require a server restart. (TVH username and password will appear in server logs and will be transmitted in cleartext over the network)</div>
                     </li>
                     <li>
-                        <label for="chkForceDeinterlace">Force video deinterlacing for all channels and recordings (EXPERIMENTAL)</label>
+                        <label for="chkForceDeinterlace">Force video deinterlacing for all channels and recordings. (Experimental)</label>
                         <input type="checkbox" id="chkForceDeinterlace" />
-                        <div class="fieldDescription">Note: Configuration change requires Emby server restart.</div>
+                        <div class="fieldDescription">Note: Changing this requires a server restart.</div>
                     </li>
                     <li>
                         <button type="submit" data-theme="b">Save</button>
