@@ -39,7 +39,7 @@ namespace TVHeadEnd
         /// <value>The name.</value>
         public override string Name
         {
-            get { return "TVHclient"; }
+            get { return "TVHeadend"; }
         }
 
         /// <summary>
@@ -50,7 +50,7 @@ namespace TVHeadEnd
         {
             get
             {
-                return "Provides live TV using Tvheadend as a back-end.";
+                return "Provides live TV using TVHeadend as the source.";
             }
         }
 
