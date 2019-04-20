@@ -1,7 +1,9 @@
 ---
 name: "jellyfin-plugin-tvheadend"
 guid: "3fd018e5-5e78-4e58-b280-a0c068febee0"
-version: "1.0.0"
+version: "2" # Please increment with each pull request
+jellyfin_version: "10.3.0" # The earliest binary-compatible version
+owner: "jellyfin"
 nicename: "TVHeadend"
 description: "Manage TVHeadend from Jellyfin"
 overview: >
