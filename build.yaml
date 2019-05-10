@@ -8,7 +8,7 @@ nicename: "TVHeadend"
 description: "Manage TVHeadend from Jellyfin"
 overview: >
   Manage TVHeadend from Jellyfin
-category: "General"
+category: "LiveTV"
 artifacts:
   - "TVHeadEnd.dll"
 build_type: "dotnet"
