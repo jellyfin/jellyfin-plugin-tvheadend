@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>TVHclient</title>
+    <title>TVHeadEnd</title>
 </head>
 <body>
     <div data-role="page" class="page type-interior pluginConfigurationPage TVHclientConfigurationPage">
@@ -113,10 +113,8 @@
                     config.ForceDeinterlace = $('#chkForceDeinterlace', form).checked();
                     ApiClient.updatePluginConfiguration(TVHclientConfigurationPageVar.pluginUniqueId, config).then(Dashboard.processPluginConfigurationUpdateResult);
                 });
-                // Disable default form submission
                 return false;
             });
-
         </script>
     </div>
 </body>
