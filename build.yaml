@@ -1,15 +1,13 @@
 ---
-name: "jellyfin-plugin-tvheadend"
+name: "TVHeadend"
 guid: "3fd018e5-5e78-4e58-b280-a0c068febee0"
-version: "5"
-jellyfin_version: "10.5.0"
+version: "5.0.0.0"
+targetAbi: "10.5.0.0"
 owner: "jellyfin"
-nicename: "TVHeadend"
-description: "Manage TVHeadend from Jellyfin"
 overview: "Manage TVHeadend from Jellyfin"
+description: "Manage TVHeadend from Jellyfin"
 category: "LiveTV"
 artifacts:
-  - "TVHeadEnd.dll"
-build_type: "dotnet"
-dotnet_configuration: "Release"
-dotnet_framework: "netstandard2.1"
+- "TVHeadEnd.dll"
+changelog: >
+  changelog
