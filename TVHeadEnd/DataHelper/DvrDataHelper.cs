@@ -12,12 +12,12 @@ namespace TVHeadEnd.DataHelper
 {
     public class DvrDataHelper
     {
-        private readonly ILogger _logger;
+        private readonly ILogger<LiveTvService> _logger;
         private readonly Dictionary<string, HTSMessage> _data;
 
         private readonly DateTime _initialDateTimeUTC = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        public DvrDataHelper(ILogger logger)
+        public DvrDataHelper(ILogger<LiveTvService> logger)
         {
             _logger = logger;
             _data = new Dictionary<string, HTSMessage>();

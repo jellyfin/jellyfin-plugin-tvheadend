@@ -22,7 +22,7 @@ namespace TVHeadEnd
 
         private readonly object _lock = new Object();
 
-        private readonly ILogger _logger;
+        private readonly ILogger<LiveTvService> _logger;
 
         private volatile Boolean _initialLoadFinished = false;
         private volatile Boolean _connected = false;
@@ -50,7 +50,7 @@ namespace TVHeadEnd
 
         private Dictionary<string, string> _headers = new Dictionary<string, string>();
 
-        private HTSConnectionHandler(ILogger logger)
+        private HTSConnectionHandler(ILogger<LiveTvService> logger)
         {
             _logger = logger;
 
@@ -66,7 +66,7 @@ namespace TVHeadEnd
             _channelDataHelper.SetChannelType4Other(_channelType);
         }
 
-        public static HTSConnectionHandler GetInstance(ILogger logger)
+        public static HTSConnectionHandler GetInstance(ILogger<LiveTvService> logger)
         {
             if (_instance == null)
             {

@@ -22,7 +22,7 @@ namespace TVHeadEnd.HTSP
         private readonly HTSConnectionListener _listener;
         private readonly String _clientName;
         private readonly String _clientVersion;
-        private readonly ILogger _logger;
+        private readonly ILogger<LiveTvService> _logger;
 
         private int _serverProtocolVersion;
         private string _servername;
@@ -46,7 +46,7 @@ namespace TVHeadEnd.HTSP
 
         private Socket _socket = null;
 
-        public HTSConnectionAsync(HTSConnectionListener listener, String clientName, String clientVersion, ILogger logger)
+        public HTSConnectionAsync(HTSConnectionListener listener, String clientName, String clientVersion, ILogger<LiveTvService> logger)
         {
             _logger = logger;
 
