@@ -34,10 +34,10 @@ namespace TVHeadEnd
         private HTSConnectionHandler _htsConnectionHandler;
         private volatile int _subscriptionId = 0;
 
-        private readonly ILogger _logger;
+        private readonly ILogger<LiveTvService> _logger;
         public DateTime LastRecordingChange = DateTime.MinValue;
 
-        public LiveTvService(ILogger logger, IMediaEncoder mediaEncoder)
+        public LiveTvService(ILogger<LiveTvService> logger, IMediaEncoder mediaEncoder)
         {
             //System.Diagnostics.StackTrace t = new System.Diagnostics.StackTrace();
             logger.LogInformation("[TVHclient] LiveTvService()");

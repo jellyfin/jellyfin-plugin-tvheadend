@@ -17,12 +17,12 @@ namespace TVHeadEnd.HTSP_Responses
         private readonly DateTime _initialDateTimeUTC = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         private readonly DateTime _startDateTimeUtc, _endDateTimeUtc;
-        private readonly ILogger _logger;
+        private readonly ILogger<LiveTvService> _logger;
         private readonly CancellationToken _cancellationToken;
 
         private readonly List<ProgramInfo> _result;
 
-        public GetEventsResponseHandler(DateTime startDateTimeUtc, DateTime endDateTimeUtc, ILogger logger, CancellationToken cancellationToken)
+        public GetEventsResponseHandler(DateTime startDateTimeUtc, DateTime endDateTimeUtc, ILogger<LiveTvService> logger, CancellationToken cancellationToken)
         {
             _startDateTimeUtc = startDateTimeUtc;
             _endDateTimeUtc = endDateTimeUtc;

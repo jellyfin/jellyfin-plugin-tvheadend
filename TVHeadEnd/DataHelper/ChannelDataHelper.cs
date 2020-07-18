@@ -12,13 +12,13 @@ namespace TVHeadEnd.DataHelper
 {
     public class ChannelDataHelper
     {
-        private readonly ILogger _logger;
+        private readonly ILogger<LiveTvService> _logger;
         private readonly TunerDataHelper _tunerDataHelper;
         private readonly Dictionary<int, HTSMessage> _data;
         private readonly Dictionary<string, string> _piconData;
         private string _channelType4Other = "Ignore";
 
-        public ChannelDataHelper(ILogger logger, TunerDataHelper tunerDataHelper)
+        public ChannelDataHelper(ILogger<LiveTvService> logger, TunerDataHelper tunerDataHelper)
         {
             _logger = logger;
             _tunerDataHelper = tunerDataHelper;
@@ -27,7 +27,7 @@ namespace TVHeadEnd.DataHelper
             _piconData = new Dictionary<string, string>();
         }
 
-        public ChannelDataHelper(ILogger logger) : this(logger, null) {}
+        public ChannelDataHelper(ILogger<LiveTvService> logger) : this(logger, null) {}
 
         public void SetChannelType4Other(string channelType4Other)
         {

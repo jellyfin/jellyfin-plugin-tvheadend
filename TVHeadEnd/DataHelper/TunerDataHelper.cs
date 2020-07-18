@@ -11,10 +11,10 @@ namespace TVHeadEnd.DataHelper
 {
     public class TunerDataHelper
     {
-        private readonly ILogger _logger;
+        private readonly ILogger<LiveTvService> _logger;
         private readonly Dictionary<string, HTSMessage> _data;
 
-        public TunerDataHelper(ILogger logger)
+        public TunerDataHelper(ILogger<LiveTvService> logger)
         {
             _logger = logger;
             _data = new Dictionary<string, HTSMessage>();
