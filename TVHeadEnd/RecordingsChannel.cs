@@ -135,7 +135,7 @@ namespace TVHeadEnd
 
         public bool IsEnabledFor(string userId)
         {
-            return true;
+            return !Plugin.Instance.Configuration.HideRecordingsChannel;
         }
 
         private LiveTvService GetService()
