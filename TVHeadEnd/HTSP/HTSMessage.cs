@@ -72,11 +72,11 @@ namespace TVHeadEnd.HTSP
             {
                 return (System.Numerics.BigInteger)_dict[name];
             }
-            catch(InvalidCastException ice)
+            catch(InvalidCastException)
             {
                 _logger.LogCritical("[TVHclient] Caught InvalidCastException for field name '{name}'. Expected 'System.Numerics.BigInteger' but got '{type}'",
                     name, _dict[name].GetType());
-                throw ice;
+                throw;
             }
         }
 

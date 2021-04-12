@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>TVHeadEnd</title>
 </head>
+
 <body>
     <div data-role="page" class="page type-interior pluginConfigurationPage TVHclientConfigurationPage">
         <div data-role="content">
@@ -50,6 +52,12 @@
                             <option>Ignore</option>
                         </select>
                     </div>
+                    <div class="checkboxContainer">
+                        <label class="emby-checkbox-label">
+                            <input type="checkbox" id="chkHideRecordingsChannel" is="emby-checkbox" />
+                            <span>Hide TVHeadEnd Recordings channel</span>
+                        </label>
+                    </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label class="emby-checkbox-label">
                             <input type="checkbox" id="chkEnableSubsMaudios" is="emby-checkbox" />
@@ -77,10 +85,10 @@
                 pluginUniqueId: "3fd018e5-5e78-4e58-b280-a0c068febee0"
             };
 
-            $('.TVHclientConfigurationPage').on('pageshow', function (event) {
+            $('.TVHclientConfigurationPage').on('pageshow', function(event) {
                 Dashboard.showLoadingMsg();
                 var page = this;
-                ApiClient.getPluginConfiguration(TVHclientConfigurationPageVar.pluginUniqueId).then(function (config) {
+                ApiClient.getPluginConfiguration(TVHclientConfigurationPageVar.pluginUniqueId).then(function(config) {
                     $('#txtTVH_ServerName', page).val(config.TVH_ServerName || "");
                     $('#txtHTTP_Port', page).val(config.HTTP_Port || "9981");
                     $('#txtHTSP_Port', page).val(config.HTSP_Port || "9982");
@@ -90,16 +98,17 @@
                     $('#txtPriority', page).val(config.Priority || "5");
                     $('#txtProfile', page).val(config.Profile || "");
                     $('#selChannelType', page).val(config.ChannelType || "Ignore");
+                    document.getElementById('chkHideRecordingsChannel').checked = config.HideRecordingsChannel || false;
                     document.getElementById('chkEnableSubsMaudios').checked = config.EnableSubsMaudios || false;
                     document.getElementById('chkForceDeinterlace').checked = config.ForceDeinterlace || false;
                     Dashboard.hideLoadingMsg();
                 });
             });
 
-            $('.TVHclientConfigurationForm').on('submit', function (e) {
+            $('.TVHclientConfigurationForm').on('submit', function(e) {
                 Dashboard.showLoadingMsg();
                 var form = this;
-                ApiClient.getPluginConfiguration(TVHclientConfigurationPageVar.pluginUniqueId).then(function (config) {
+                ApiClient.getPluginConfiguration(TVHclientConfigurationPageVar.pluginUniqueId).then(function(config) {
                     config.TVH_ServerName = $('#txtTVH_ServerName', form).val();
                     config.HTTP_Port = $('#txtHTTP_Port', form).val();
                     config.HTSP_Port = $('#txtHTSP_Port', form).val();
@@ -109,6 +118,7 @@
                     config.Priority = $('#txtPriority', form).val();
                     config.Profile = $('#txtProfile', form).val();
                     config.ChannelType = $('#selChannelType', form).val();
+                    config.HideRecordingsChannel = document.getElementById('chkHideRecordingsChannel').checked;
                     config.EnableSubsMaudios = document.getElementById('chkEnableSubsMaudios').checked;
                     config.ForceDeinterlace = document.getElementById('chkForceDeinterlace').checked;
                     ApiClient.updatePluginConfiguration(TVHclientConfigurationPageVar.pluginUniqueId, config).then(Dashboard.processPluginConfigurationUpdateResult);
@@ -118,4 +128,5 @@
         </script>
     </div>
 </body>
+
 </html>

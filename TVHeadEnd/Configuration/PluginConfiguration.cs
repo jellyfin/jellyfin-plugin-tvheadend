@@ -17,6 +17,7 @@ namespace TVHeadEnd.Configuration
         public int Priority { get; set; }
         public string Profile { get; set; }
         public string ChannelType { get; set; }
+        public bool HideRecordingsChannel { get; set; }
         public bool EnableSubsMaudios { get; set; }
         public bool ForceDeinterlace { get; set; }
 
@@ -31,6 +32,7 @@ namespace TVHeadEnd.Configuration
             Priority = 5;
             Profile = "";
             ChannelType = "Ignore";
+            HideRecordingsChannel = false;
             EnableSubsMaudios = false;
             ForceDeinterlace = false;
         }
