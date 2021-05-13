@@ -1,0 +1,67 @@
+﻿<div id="TVHclientConfigurationPage" data-role="page" class="page type-interior pluginConfigurationPage" data-controller="__plugin/tvheadendjs">
+
+    <div data-role="content">
+        <div class="content-primary">
+            <form class="TVHclientConfigurationForm">
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="txtTVH_ServerName" label="TVHeadend Hostname or IP Address" />
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="txtHTTP_Port" label="HTTP Port" />
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="txtHTSP_Port" label="HTSP Port" />
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="txtWebRoot" label="Web Root" />
+                    <div class="fieldDescription">This path will be added to HOSTNAME:PORT on the end of the URL. It should be '/' if you don't have a custom setup.</div>
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="txtUserName" label="Username" />
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="txtPassword" label="Password" />
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="txtPriority" label="Priority of Recordings" />
+                    <div class="fieldDescription">0 = Important, 1 = High, 2 = Normal, 3 = Low, 4 = Unimportant</div>
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="txtProfile" label="Profile for Recordings" />
+                </div>
+                <div class="selectContainer">
+                    <select is="emby-select" id="selChannelType" label="Use this channel type for channels tagged with Other">
+                        <option>TV</option>
+                        <option>Radio</option>
+                        <option>Ignore</option>
+                    </select>
+                </div>
+                <div class="checkboxContainer">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="chkHideRecordingsChannel" />
+                        <span>Hide TVHeadEnd Recordings channel</span>
+                    </label>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="chkEnableSubsMaudios" />
+                        <span>Enable live TV subtitles and multiple audio tracks (Experimental)</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">Note: Enabling this feature has security implications and will require a server restart. (TVH username and password will appear in server logs and will be transmitted in cleartext over the network)</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="chkForceDeinterlace" />
+                        <span>Force video deinterlacing for all channels and recordings. (Experimental)</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">Note: Changing this requires a server restart.</div>
+                </div>
+                <div>
+                    <button is="emby-button" type="submit" class="raised button-submit block">
+                        <span>Save</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

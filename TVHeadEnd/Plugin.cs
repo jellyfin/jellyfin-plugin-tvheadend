@@ -27,8 +27,13 @@ namespace TVHeadEnd
             {
                 new PluginPageInfo
                 {
-                    Name = Name,
-                    EmbeddedResourcePath = GetType().Namespace + ".Configuration.configPage.html"
+                    Name = "tvheadend",
+                    EmbeddedResourcePath = GetType().Namespace + ".Web.tvheadend.html",
+                },
+                new PluginPageInfo
+                {
+                    Name = "tvheadendjs",
+                    EmbeddedResourcePath = GetType().Namespace + ".Web.tvheadend.js"
                 }
             };
         }
@@ -66,5 +71,5 @@ namespace TVHeadEnd
         /// <value>The instance.</value>
         public static Plugin Instance { get; private set; }
     }
-    
+
 }
