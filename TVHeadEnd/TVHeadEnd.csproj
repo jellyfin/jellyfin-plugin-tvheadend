@@ -2,13 +2,15 @@
 
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <AssemblyVersion>8.0.0.0</AssemblyVersion>
-    <FileVersion>8.0.0.0</FileVersion>
+    <AssemblyVersion>9.0.0.0</AssemblyVersion>
+    <FileVersion>9.0.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Configuration\configPage.html" />
-    <EmbeddedResource Include="Configuration\configPage.html" />
+    <None Remove="Web\tvheadend.html" />
+    <None Remove="Web\tvheadend.js" />
+    <EmbeddedResource Include="Web\tvheadend.html" />
+    <EmbeddedResource Include="Web\tvheadend.js" />
   </ItemGroup>
 
   <ItemGroup>
