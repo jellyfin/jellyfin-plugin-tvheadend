@@ -35,7 +35,7 @@ namespace TVHeadEnd.HTSP_Responses
 
         public void handleResponse(HTSMessage response)
         {
-            _logger.LogInformation("[TVHclient] GetEventsResponseHandler.handleResponse: received answer from TVH server: {msg}", response.ToString()); 
+            _logger.LogDebug("[TVHclient] GetEventsResponseHandler.handleResponse: received answer from TVH server: {msg}", response.ToString());
 
             if (response.containsField("events"))
             {
@@ -51,7 +51,7 @@ namespace TVHeadEnd.HTSP_Responses
                         int compResult = DateTime.Compare(currentStartDateTimeUTC, _endDateTimeUtc);
                         if (compResult > 0)
                         {
-                            _logger.LogInformation("[TVHclient] GetEventsResponseHandler.handleResponse: start value of event larger query stop value - skipping! \n" 
+                            _logger.LogDebug("[TVHclient] GetEventsResponseHandler.handleResponse: start value of event larger than query stop value - skipping\n"
                                 + "Query start UTC dateTime: {start}\n"
                                 + "Query end UTC dateTime:   {end}\n"
                                 + "Event start UTC dateTime: {currstart}\n{msg}",
@@ -62,7 +62,7 @@ namespace TVHeadEnd.HTSP_Responses
                     }
                     else
                     {
-                        _logger.LogInformation("[TVHclient] GetEventsResponseHandler.handleResponse: no start value for event - skipping!\n{msg}", currEventMessage.ToString());
+                        _logger.LogDebug("[TVHclient] GetEventsResponseHandler.handleResponse: no start value for event - skipping\n{msg}", currEventMessage.ToString());
                         continue;
                     }
 
@@ -73,7 +73,7 @@ namespace TVHeadEnd.HTSP_Responses
                         int compResult = DateTime.Compare(currentEndDateTimeUTC, _startDateTimeUtc);
                         if (compResult < 0)
                         {
-                            _logger.LogInformation("[TVHclient] GetEventsResponseHandler.handleResponse: stop value of event smaller query start value - skipping!\n"
+                            _logger.LogDebug("[TVHclient] GetEventsResponseHandler.handleResponse: stop value of event smaller than query start value - skipping\n"
                                 + "Query start UTC dateTime: {start}\n"
                                 + "Query end UTC dateTime:   {end}\n"
                                 + "Event start UTC dateTime: {currend}\n{msg}",
@@ -84,7 +84,7 @@ namespace TVHeadEnd.HTSP_Responses
                     }
                     else
                     {
-                        _logger.LogInformation("[TVHclient] GetEventsResponseHandler.handleResponse: no stop value for event - skipping!\n{msg}", currEventMessage.ToString());
+                        _logger.LogDebug("[TVHclient] GetEventsResponseHandler.handleResponse: no stop value for event - skipping\n{msg}", currEventMessage.ToString());
                         continue;
                     }
 
@@ -721,7 +721,7 @@ namespace TVHeadEnd.HTSP_Responses
                     //pi.Audio - MediaBrowser.Model.LiveTv.ProgramAudio
                     //pi.ProductionYear - int
 
-                    _logger.LogInformation("[TVHclient] GetEventsResponseHandler.handleResponse: add event\n{msg}\n{msg2}", currEventMessage.ToString(), createPiInfo(pi));
+                    _logger.LogDebug("[TVHclient] GetEventsResponseHandler.handleResponse: add event\n Message: {msg}\n PiInfo: {msg2}", currEventMessage.ToString(), createPiInfo(pi));
 
                     _result.Add(pi);
                 }
@@ -768,7 +768,7 @@ namespace TVHeadEnd.HTSP_Responses
                 {
                     Thread.Sleep(500);
                 }
-                //_logger.LogInformation("[TVHclient] GetEventsResponseHandler.GetEvents: channelId={cid}  / dataReady={dr}  / cancellationToken.IsCancellationRequested={cancelreq}",
+                //_logger.LogDebug("[TVHclient] GetEventsResponseHandler.GetEvents: channelId={cid}  / dataReady={dr}  / cancellationToken.IsCancellationRequested={cancelreq}",
                 //    channelId, _dataReady, cancellationToken.IsCancellationRequested);
                 return _result;
             });

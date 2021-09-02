@@ -36,7 +36,7 @@ namespace TVHeadEnd.DataHelper
             {
                 if (_data.ContainsKey(id))
                 {
-                    _logger.LogInformation("[TVHclient] AutorecDataHelper.autorecEntryAdd id already in database - skip! {m}", message.ToString());
+                    _logger.LogDebug("[TVHclient] AutorecDataHelper.autorecEntryAdd: id already in database - skipping");
                     return;
                 }
                 _data.Add(id, message);
@@ -51,7 +51,7 @@ namespace TVHeadEnd.DataHelper
                 HTSMessage oldMessage = _data[id];
                 if (oldMessage == null)
                 {
-                    _logger.LogInformation("[TVHclient] AutorecDataHelper.autorecEntryAdd id not in database - skip! {m}", message.ToString());
+                    _logger.LogDebug("[TVHclient] AutorecDataHelper.autorecEntryAdd: id not in database - skipping");
                     return;
                 }
                 foreach (KeyValuePair<string, object> entry in message)
@@ -86,7 +86,7 @@ namespace TVHeadEnd.DataHelper
                     {
                         if (cancellationToken.IsCancellationRequested)
                         {
-                            _logger.LogInformation("[TVHclient] DvrDataHelper.buildDvrInfos, call canceled - returning part list.");
+                            _logger.LogDebug("[TVHclient] AutorecDataHelper.buildAutorecInfos: call cancelled - returning partial list");
                             return result;
                         }
 
@@ -126,7 +126,7 @@ namespace TVHeadEnd.DataHelper
 
                                 if (DateTime.MaxValue.AddDays(-retentionInDays) < DateTime.Now)
                                 {
-                                    _logger.LogError("[TVHclient] Change during 'EndDate' calculation: set retention value from '{days}' to '365' days", retentionInDays);
+                                    _logger.LogError("[TVHclient] AutorecDataHelper.buildAutorecInfos: change during 'EndDate' calculation: set retention value from '{days}' to '365' days", retentionInDays);
                                     sti.EndDate = DateTime.Now.AddDays(365).ToUniversalTime();
                                 }
                                 else
@@ -137,7 +137,7 @@ namespace TVHeadEnd.DataHelper
                         }
                         catch (Exception e)
                         {
-                            _logger.LogError(e, "[TVHclient] Exception during 'EndDate' calculation, {m}", m.ToString());
+                            _logger.LogError(e, "[TVHclient] AutorecDataHelper.buildAutorecInfos: exception during 'EndDate' calculation. HTSMessage: {m}", m.ToString());
                         }
 
                         try

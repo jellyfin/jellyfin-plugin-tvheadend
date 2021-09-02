@@ -342,11 +342,11 @@ namespace TVHeadEnd.HTSP
             }
             else if (value == null)
             {
-                throw new IOException("HTSP doesn't support null values");
+                throw new IOException("[TVHclient] HTSPMessage.getValueString: HTSP doesn't support null values");
             }
             else
             {
-                throw new IOException("Unhandled class for " + name + ": " + value + " (" + value.GetType().Name + ")");
+                throw new IOException("[TVHclient] HTSPMessage.getValueString: unhandled class for " + name + ": " + value + " (" + value.GetType().Name + ")");
             }
 
             byte[] buf = new byte[1 + 1 + 4 + bName.Length + bData.Length];
@@ -359,7 +359,7 @@ namespace TVHeadEnd.HTSP
 
             Array.Copy(bName, 0, buf, 6, bName.Length);
             Array.Copy(bData, 0, buf, 6 + bName.Length, bData.Length);
-            
+
             return buf;
         }
 
@@ -387,7 +387,7 @@ namespace TVHeadEnd.HTSP
         {
             if (data.Length < 4)
             {
-                logger.LogError("[HTSMessage.parse(byte[])] Really to short");
+                logger.LogError("[TVHclient] HTSMessage.parse(byte[]): didn't receive enough data");
                 return null;
             }
 
@@ -395,7 +395,7 @@ namespace TVHeadEnd.HTSP
             //Message not fully read
             if (data.Length < len + 4)
             {
-                logger.LogError("[HTSMessage.parse(byte[])] not enough data for len: {len}", len);
+                logger.LogError("[TVHclient] HTSMessage.parse(byte[]): didn't receive enough data for len: {len}", len);
                 return null;
             }
 
@@ -453,7 +453,7 @@ namespace TVHeadEnd.HTSP
 
                 if (buf.Length() < namelen + datalen)
                 {
-                    throw new IOException("Buffer limit exceeded");
+                    throw new IOException("[TVHclient] HTSMessage.deserializeBinary: buffer limit exceeded");
                 }
 
                 //Get the key for the map (the name)
@@ -502,7 +502,7 @@ namespace TVHeadEnd.HTSP
                             break;
                         }
                     default:
-                        throw new IOException("Unknown data type");
+                        throw new IOException("[TVHclient] HTSMessage.deserializeBinary: unknown data type");
                 }
                 msg.putField(name, obj);
             }

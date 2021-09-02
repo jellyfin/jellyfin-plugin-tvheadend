@@ -38,7 +38,7 @@ namespace TVHeadEnd.DataHelper
             {
                 if (_data.ContainsKey(id))
                 {
-                    _logger.LogInformation("[TVHclient] DvrDataHelper.dvrEntryAdd id already in database - skip! {m}", message.ToString());
+                    _logger.LogDebug("[TVHclient] DvrDataHelper.dvrEntryAdd id already in database - skipping");
                     return;
                 }
                 _data.Add(id, message);
@@ -53,7 +53,7 @@ namespace TVHeadEnd.DataHelper
                 HTSMessage oldMessage = _data[id];
                 if (oldMessage == null)
                 {
-                    _logger.LogInformation("[TVHclient] DvrDataHelper.dvrEntryUpdate id not in database - skip! {m}", message.ToString());
+                    _logger.LogDebug("[TVHclient] DvrDataHelper.dvrEntryUpdate id not in database - skipping");
                     return;
                 }
                 foreach (KeyValuePair<string, object> entry in message)
@@ -87,7 +87,7 @@ namespace TVHeadEnd.DataHelper
                     {
                         if (cancellationToken.IsCancellationRequested)
                         {
-                            _logger.LogInformation("[TVHclient] DvrDataHelper.buildDvrInfos, call canceled - returning part list.");
+                            _logger.LogDebug("[TVHclient] DvrDataHelper.buildDvrInfos: call cancelled - returning partial list");
                             return result;
                         }
 
@@ -240,7 +240,7 @@ namespace TVHeadEnd.DataHelper
                                         break;
 
                                     default:
-                                        _logger.LogCritical("[TVHclient] DvrDataHelper.buildDvrInfos: state '{state}' not handled!", state);
+                                        _logger.LogCritical("[TVHclient] DvrDataHelper.buildDvrInfos: state '{state}' not handled", state);
                                         continue;
                                     //break;
                                 }
@@ -315,7 +315,7 @@ namespace TVHeadEnd.DataHelper
                     {
                         if (cancellationToken.IsCancellationRequested)
                         {
-                            _logger.LogInformation("[TVHclient] DvrDataHelper.buildDvrInfos, call canceled - returning part list.");
+                            _logger.LogDebug("[TVHclient] DvrDataHelper.buildDvrInfos: call cancelled - returning partial list");
                             return result;
                         }
 

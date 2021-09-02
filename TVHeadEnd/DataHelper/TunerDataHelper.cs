@@ -65,8 +65,8 @@ namespace TVHeadEnd.DataHelper
               type : SDTV
         ,       name : STV0367 DVB-C DVB-T (adapter 0)/KBW: 370,000 kHz/zdf.kultur
               type : SDTV
-        , 
-            tags : 1, 2, 
+        ,
+            tags : 1, 2,
             method : channelAdd
           </dump>
         */
@@ -82,7 +82,7 @@ namespace TVHeadEnd.DataHelper
                     {
                         if (cancellationToken.IsCancellationRequested)
                         {
-                            _logger.LogInformation("[TVHclient] TunerDataHelper.buildTunerInfos: cancel requst received. Returning only partly results");
+                            _logger.LogDebug("[TVHclient] TunerDataHelper.buildTunerInfos: cancel requst received - returning incomplete results");
                             return result;
                         }
 
