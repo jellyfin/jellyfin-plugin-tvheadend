@@ -50,7 +50,7 @@ namespace TVHeadEnd.DataHelper
         {
             if (_tunerDataHelper != null)
             {
-                // TVHeadend don't send the information we need 
+                // TVHeadend don't send the information we need
                 // _tunerDataHelper.addTunerInfo(message);
             }
 
@@ -75,7 +75,7 @@ namespace TVHeadEnd.DataHelper
                         }
                         else
                         {
-                            _logger.LogError("[TVHclient] ChannelDataHelper: update for channelID '{id}' but no initial data found!", channelID);
+                            _logger.LogError("[TVHclient] ChannelDataHelper: updated data for channelID '{id}' but no initial data found", channelID);
                         }
                     }
                     else
@@ -88,7 +88,7 @@ namespace TVHeadEnd.DataHelper
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "[TVHclient] ChannelDataHelper.Add caught exception. HTSMessage: {m} ", message);
+                    _logger.LogError(ex, "[TVHclient] ChannelDataHelper.Add: exception caught. HTSMessage: {m} ", message);
                 }
             }
         }
@@ -114,7 +114,7 @@ namespace TVHeadEnd.DataHelper
                     {
                         if (cancellationToken.IsCancellationRequested)
                         {
-                            _logger.LogInformation("[TVHclient] ChannelDataHelper.buildChannelInfos, call canceled - returning part list.");
+                            _logger.LogDebug("[TVHclient] ChannelDataHelper.buildChannelInfos: call cancelled - returning partial list");
                             return result;
                         }
 
@@ -193,22 +193,22 @@ namespace TVHeadEnd.DataHelper
                                                 switch (_channelType4Other.ToLower())
                                                 {
                                                     case "tv":
-                                                        _logger.LogInformation("[TVHclient] ChannelDataHelper: map service tag 'Other' to 'TV'.");
+                                                        _logger.LogDebug("[TVHclient] ChannelDataHelper: map service tag 'Other' to 'TV'");
                                                         ci.ChannelType = ChannelType.TV;
                                                         serviceFound = true;
                                                         break;
                                                     case "radio":
-                                                        _logger.LogInformation("[TVHclient] ChannelDataHelper: map service tag 'Other' to 'Radio'.");
+                                                        _logger.LogDebug("[TVHclient] ChannelDataHelper: map service tag 'Other' to 'Radio'");
                                                         ci.ChannelType = ChannelType.Radio;
                                                         serviceFound = true;
                                                         break;
                                                     default:
-                                                        _logger.LogInformation("[TVHclient] ChannelDataHelper: don't map service tag 'Other' - will be ignored.");
+                                                        _logger.LogDebug("[TVHclient] ChannelDataHelper: don't map service tag 'Other' - will be ignored");
                                                         break;
                                                 }
                                                 break;
                                             default:
-                                                _logger.LogInformation("[TVHclient] ChannelDataHelper: unkown service tag '{tag}' - will be ignored.", type);
+                                                _logger.LogDebug("[TVHclient] ChannelDataHelper: unkown service tag '{tag}' - will be ignored.", type);
                                                 break;
                                         }
                                     }
@@ -216,17 +216,17 @@ namespace TVHeadEnd.DataHelper
                             }
                             if (!serviceFound)
                             {
-                                _logger.LogInformation("[TVHclient] ChannelDataHelper: unable to detect service-type (tvheadend tag!!!) from service list: {m}", m.ToString());
+                                _logger.LogDebug("[TVHclient] ChannelDataHelper: unable to detect service-type (tvheadend tag) from service list. HTSMessage: {m}", m.ToString());
                                 continue;
                             }
 
-                            _logger.LogInformation("[TVHclient] ChannelDataHelper: Adding channel: {m}", m.ToString());
+                            _logger.LogDebug("[TVHclient] ChannelDataHelper: adding channel: {m}", ci.Name);
 
                             result.Add(ci);
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "[TVHclient] ChannelDataHelper.BuildChannelInfos caught exception. HTSmessage: {m}", m);
+                            _logger.LogError(ex, "[TVHclient] ChannelDataHelper.BuildChannelInfos: exception caught. HTSMessage: {m}", m.ToString());
                         }
                     }
                     return result;
