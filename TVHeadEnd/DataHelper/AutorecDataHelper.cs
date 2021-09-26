@@ -10,12 +10,12 @@ namespace TVHeadEnd.DataHelper
 {
     public class AutorecDataHelper
     {
-        private readonly ILogger<LiveTvService> _logger;
+        private readonly ILogger<AutorecDataHelper> _logger;
         private readonly Dictionary<string, HTSMessage> _data;
 
         private readonly DateTime _initialDateTimeUTC = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        public AutorecDataHelper(ILogger<LiveTvService> logger)
+        public AutorecDataHelper(ILogger<AutorecDataHelper> logger)
         {
             _logger = logger;
             _data = new Dictionary<string, HTSMessage>();

@@ -2,13 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.Drawing;
 using MediaBrowser.Controller.LiveTv;
 using Microsoft.Extensions.Logging;
+using Microsoft.Net.Http.Headers;
 using TVHeadEnd.DataHelper;
 using TVHeadEnd.HTSP;
 
@@ -22,7 +26,9 @@ namespace TVHeadEnd
 
         private readonly object _lock = new Object();
 
-        private readonly ILogger<LiveTvService> _logger;
+        private readonly ILoggerFactory _loggerFactory;
+        private readonly ILogger<HTSConnectionHandler> _logger;
+        private readonly IHttpClientFactory _httpClientFactory;
 
         private volatile Boolean _initialLoadFinished = false;
         private volatile Boolean _connected = false;
@@ -50,23 +56,25 @@ namespace TVHeadEnd
 
         private Dictionary<string, string> _headers = new Dictionary<string, string>();
 
-        private HTSConnectionHandler(ILogger<LiveTvService> logger)
+        private HTSConnectionHandler(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory)
         {
-            _logger = logger;
+            _loggerFactory = loggerFactory;
+            _logger = loggerFactory.CreateLogger<HTSConnectionHandler>();
+            _httpClientFactory = httpClientFactory;
 
             //System.Diagnostics.StackTrace t = new System.Diagnostics.StackTrace();
             _logger.LogDebug("[TVHclient] HTSConnectionHandler");
 
-            _channelDataHelper = new ChannelDataHelper(logger);
-            _dvrDataHelper = new DvrDataHelper(logger);
-            _autorecDataHelper = new AutorecDataHelper(logger);
+            _channelDataHelper = new ChannelDataHelper(loggerFactory.CreateLogger<ChannelDataHelper>());
+            _dvrDataHelper = new DvrDataHelper(loggerFactory.CreateLogger<DvrDataHelper>());
+            _autorecDataHelper = new AutorecDataHelper(loggerFactory.CreateLogger<AutorecDataHelper>());
 
             init();
 
             _channelDataHelper.SetChannelType4Other(_channelType);
         }
 
-        public static HTSConnectionHandler GetInstance(ILogger<LiveTvService> logger)
+        public static HTSConnectionHandler GetInstance(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory)
         {
             if (_instance == null)
             {
@@ -74,7 +82,7 @@ namespace TVHeadEnd
                 {
                     if (_instance == null)
                     {
-                        _instance = new HTSConnectionHandler(logger);
+                        _instance = new HTSConnectionHandler(loggerFactory, httpClientFactory);
                     }
                 }
             }
@@ -166,7 +174,7 @@ namespace TVHeadEnd
             _headers["Authorization"] = "Basic " + authInfo;
         }
 
-        public ImageStream GetChannelImage(string channelId, CancellationToken cancellationToken)
+        public async Task<ImageStream> GetChannelImage(string channelId, CancellationToken cancellationToken)
         {
             try
             {
@@ -176,28 +184,30 @@ namespace TVHeadEnd
 
                 _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: channelIcon: {ico}", channelIcon);
 
-                WebRequest request = null;
+                using var request = new HttpRequestMessage();
+                request.Method = HttpMethod.Get;
 
                 if (channelIcon.StartsWith("http"))
                 {
-                    request = WebRequest.Create(channelIcon);
-
+                    request.RequestUri = new Uri(channelIcon);
                     _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: WebRequest: {ico}", channelIcon);
                 }
                 else
                 {
                     string requestStr = "http://" + _tvhServerName + ":" + _httpPort + _webRoot + "/" + channelIcon;
-                    request = WebRequest.Create(requestStr);
-                    request.Headers["Authorization"] = _headers["Authorization"];
+                    request.RequestUri = new Uri(requestStr);
+                    request.Headers.Authorization = AuthenticationHeaderValue.Parse(_headers[HeaderNames.Authorization]);
 
                     _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: WebRequest: {req}", requestStr);
                 }
 
+                var responseMessage = await _httpClientFactory.CreateClient(NamedClient.Default)
+                    .SendAsync(request, cancellationToken)
+                    .ConfigureAwait(false);
+                responseMessage.EnsureSuccessStatusCode();
+                var stream = await responseMessage.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
 
-                HttpWebResponse httpWebReponse = (HttpWebResponse)request.GetResponse();
-                Stream stream = httpWebReponse.GetResponseStream();
-
-                ImageStream imageStream = new ImageStream();
+                ImageStream imageStream;
 
                 int lastDot = channelIcon.LastIndexOf('.');
                 if (lastDot > -1)
@@ -210,31 +220,31 @@ namespace TVHeadEnd
                     switch (suffix)
                     {
                         case "bmp":
-                            imageStream.Stream = stream;
+                            imageStream = new ImageStream(stream);
                             imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Bmp;
                             _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: using fixed image type BMP");
                             break;
 
                         case "gif":
-                            imageStream.Stream = stream;
+                            imageStream = new ImageStream(stream);
                             imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Gif;
                             _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: using fixed image type GIF");
                             break;
 
                         case "jpg":
-                            imageStream.Stream = stream;
+                            imageStream = new ImageStream(stream);
                             imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Jpg;
                             _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: using fixed image type JPG");
                             break;
 
                         case "png":
-                            imageStream.Stream = stream;
+                            imageStream = new ImageStream(stream);
                             imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Png;
                             _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: using fixed image type PNG");
                             break;
 
                         case "webp":
-                            imageStream.Stream = stream;
+                            imageStream = new ImageStream(stream);
                             imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Webp;
                             _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: using fixed image type WEBP");
                             break;
@@ -244,7 +254,7 @@ namespace TVHeadEnd
                             //Image image = Image.FromStream(stream);
                             //imageStream.Stream = ImageToPNGStream(image);
                             //imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Png;
-                            imageStream.Stream = stream;
+                            imageStream = new ImageStream(stream);
                             imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Png;
                             break;
                     }
@@ -255,7 +265,7 @@ namespace TVHeadEnd
                     //Image image = Image.FromStream(stream);
                     //imageStream.Stream = ImageToPNGStream(image);
                     //imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Png;
-                    imageStream.Stream = stream;
+                    imageStream = new ImageStream(stream);
                     imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Png;
                 }
 
@@ -309,7 +319,7 @@ namespace TVHeadEnd
             {
                 _logger.LogDebug("[TVHclient] HTSConnectionHandler.ensureConnection: create new HTS connection");
                 Version version = Assembly.GetEntryAssembly().GetName().Version;
-                _htsConnection = new HTSConnectionAsync(this, "TVHclient4Emby-" + version.ToString(), "" + HTSMessage.HTSP_VERSION, _logger);
+                _htsConnection = new HTSConnectionAsync(this, "TVHclient4Emby-" + version.ToString(), "" + HTSMessage.HTSP_VERSION, _loggerFactory);
                 _connected = false;
             }
 

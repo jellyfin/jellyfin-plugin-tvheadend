@@ -22,7 +22,8 @@ namespace TVHeadEnd.HTSP
         private readonly HTSConnectionListener _listener;
         private readonly String _clientName;
         private readonly String _clientVersion;
-        private readonly ILogger<LiveTvService> _logger;
+        private readonly ILoggerFactory _loggerFactory;
+        private readonly ILogger<HTSConnectionAsync> _logger;
 
         private int _serverProtocolVersion;
         private string _servername;
@@ -46,9 +47,10 @@ namespace TVHeadEnd.HTSP
 
         private Socket _socket = null;
 
-        public HTSConnectionAsync(HTSConnectionListener listener, String clientName, String clientVersion, ILogger<LiveTvService> logger)
+        public HTSConnectionAsync(HTSConnectionListener listener, String clientName, String clientVersion, ILoggerFactory loggerFactory)
         {
-            _logger = logger;
+            _loggerFactory = loggerFactory;
+            _logger = loggerFactory.CreateLogger<HTSConnectionAsync>();
 
             _connected = false;
             _lock = new object();
@@ -414,7 +416,7 @@ namespace TVHeadEnd.HTSP
                     byte[] lengthInformation = _buffer.getFromStart(4);
                     long messageDataLength = HTSMessage.uIntToLong(lengthInformation[0], lengthInformation[1], lengthInformation[2], lengthInformation[3]);
                     byte[] messageData = _buffer.extractFromStart((int)messageDataLength + 4); // should be long !!!
-                    HTSMessage response = HTSMessage.parse(messageData, _logger);
+                    HTSMessage response = HTSMessage.parse(messageData, _loggerFactory.CreateLogger<HTSMessage>());
                     _receivedMessagesQueue.Enqueue(response);
                 }
                 catch (Exception ex)

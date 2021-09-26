@@ -19,7 +19,7 @@ namespace TVHeadEnd.HTSP
         private const byte HMF_LIST = 5;
 
         private readonly Dictionary<string, object> _dict;
-        private ILogger<LiveTvService> _logger = null;
+        private ILogger<HTSMessage> _logger = null;
         private byte[] _data = null;
 
         public HTSMessage()
@@ -383,7 +383,7 @@ namespace TVHeadEnd.HTSP
             return b1;
         }
 
-        public static HTSMessage parse(byte[] data, ILogger<LiveTvService> logger)
+        public static HTSMessage parse(byte[] data, ILogger<HTSMessage> logger)
         {
             if (data.Length < 4)
             {

@@ -211,12 +211,10 @@ namespace TVHeadEnd
             var service = GetService();
             var allRecordings = await service.GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false);
 
-            var result = new ChannelItemResult()
+            var result = new ChannelItemResult
             {
-                Items = new List<ChannelItemInfo>()
+                Items = allRecordings.Where(filter).Select(info => ConvertToChannelItem(info)).ToList()
             };
-
-            result.Items.AddRange(allRecordings.Where(filter).Select(ConvertToChannelItem));
 
             return result;
         }
@@ -291,16 +289,14 @@ namespace TVHeadEnd
             var service = GetService();
 
             var allRecordings = await service.GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false);
-            var result = new ChannelItemResult()
-            {
-                Items = new List<ChannelItemInfo>()
-            };
+            var result = new ChannelItemResult();
+            var items = new List<ChannelItemInfo>();
 
             var series = allRecordings
                 .Where(i => i.IsSeries)
                 .ToLookup(i => i.Name, StringComparer.OrdinalIgnoreCase);
 
-            result.Items.AddRange(series.OrderBy(i => i.Key).Select(i => new ChannelItemInfo
+            items.AddRange(series.OrderBy(i => i.Key).Select(i => new ChannelItemInfo
             {
                 Name = i.Key,
                 FolderType = ChannelFolderType.Container,
@@ -313,7 +309,7 @@ namespace TVHeadEnd
 
             if (kids != null)
             {
-                result.Items.Add(new ChannelItemInfo
+                items.Add(new ChannelItemInfo
                 {
                     Name = "Kids",
                     FolderType = ChannelFolderType.Container,
@@ -326,7 +322,7 @@ namespace TVHeadEnd
             var movies = allRecordings.FirstOrDefault(i => i.IsMovie);
             if (movies != null)
             {
-                result.Items.Add(new ChannelItemInfo
+                items.Add(new ChannelItemInfo
                 {
                     Name = "Movies",
                     FolderType = ChannelFolderType.Container,
@@ -339,7 +335,7 @@ namespace TVHeadEnd
             var news = allRecordings.FirstOrDefault(i => i.IsNews);
             if (news != null)
             {
-                result.Items.Add(new ChannelItemInfo
+                items.Add(new ChannelItemInfo
                 {
                     Name = "News",
                     FolderType = ChannelFolderType.Container,
@@ -352,7 +348,7 @@ namespace TVHeadEnd
             var sports = allRecordings.FirstOrDefault(i => i.IsSports);
             if (sports != null)
             {
-                result.Items.Add(new ChannelItemInfo
+                items.Add(new ChannelItemInfo
                 {
                     Name = "Sports",
                     FolderType = ChannelFolderType.Container,
@@ -365,7 +361,7 @@ namespace TVHeadEnd
             var other = allRecordings.FirstOrDefault(i => !i.IsSports && !i.IsNews && !i.IsMovie && !i.IsKids && !i.IsSeries);
             if (other != null)
             {
-                result.Items.Add(new ChannelItemInfo
+                items.Add(new ChannelItemInfo
                 {
                     Name = "Others",
                     FolderType = ChannelFolderType.Container,
@@ -375,6 +371,7 @@ namespace TVHeadEnd
                 });
             }
 
+            result.Items = items;
             return result;
         }
     }
