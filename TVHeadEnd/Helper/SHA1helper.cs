@@ -6,8 +6,7 @@ namespace TVHeadEnd.Helper
     {
         public static byte[] GenerateSaltedSHA1(string plainTextString, byte[] saltBytes)
         {
-            HashAlgorithm algorithm = new SHA1Managed();
-
+            using HashAlgorithm algorithm = SHA1.Create();
             byte[] plainTextBytes = System.Text.Encoding.UTF8.GetBytes(plainTextString);
 
             byte[] plainTextWithSaltBytes = new byte[plainTextBytes.Length + saltBytes.Length];

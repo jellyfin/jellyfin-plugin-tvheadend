@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,14 +38,13 @@ namespace TVHeadEnd
         private readonly ILogger<LiveTvService> _logger;
         public DateTime LastRecordingChange = DateTime.MinValue;
 
-        public LiveTvService(ILogger<LiveTvService> logger, IMediaEncoder mediaEncoder)
+        public LiveTvService(ILoggerFactory loggerFactory, IMediaEncoder mediaEncoder, IHttpClientFactory httpClientFactory)
         {
             //System.Diagnostics.StackTrace t = new System.Diagnostics.StackTrace();
-            logger.LogDebug("[TVHclient] LiveTvService");
+            _logger = loggerFactory.CreateLogger<LiveTvService>();
+            _logger.LogDebug("[TVHclient] LiveTvService()");
 
-            _logger = logger;
-
-            _htsConnectionHandler = HTSConnectionHandler.GetInstance(_logger);
+            _htsConnectionHandler = HTSConnectionHandler.GetInstance(loggerFactory, httpClientFactory);
             _htsConnectionHandler.setLiveTvService(this);
 
             //Added for stream probing
@@ -370,11 +370,6 @@ namespace TVHeadEnd
                     }
                 }
             }
-        }
-
-        public Task<ImageStream> GetChannelImageAsync(string channelId, CancellationToken cancellationToken)
-        {
-            return Task.FromResult<ImageStream>(_htsConnectionHandler.GetChannelImage(channelId, cancellationToken));
         }
 
         public async Task<IEnumerable<ChannelInfo>> GetChannelsAsync(CancellationToken cancellationToken)
