@@ -372,11 +372,6 @@ namespace TVHeadEnd
             }
         }
 
-        public async Task<ImageStream> GetChannelImageAsync(string channelId, CancellationToken cancellationToken)
-        {
-            return await _htsConnectionHandler.GetChannelImage(channelId, cancellationToken).ConfigureAwait(false);
-        }
-
         public async Task<IEnumerable<ChannelInfo>> GetChannelsAsync(CancellationToken cancellationToken)
         {
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
