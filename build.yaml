@@ -1,8 +1,8 @@
 name: "TVHeadend"
 guid: "3fd018e5-5e78-4e58-b280-a0c068febee0"
 imageUrl: "https://repo.jellyfin.org/releases/plugin/images/jellyfin-plugin-tvheadend.png"
-version: "9"
-targetAbi: "10.7.0.0"
+version: "10"
+targetAbi: "10.8.0.0"
 framework: "net6.0"
 owner: "jellyfin"
 overview: "Manage TVHeadend from Jellyfin"
@@ -11,12 +11,5 @@ category: "LiveTV"
 artifacts:
   - "TVHeadEnd.dll"
 changelog: |2-
-  ### New features and improvements ###
-  - chore: plugin images (#37) @h1dden-da3m0n
-
-  ### CI & build changes ###
-  - Update ci (#39) @h1dden-da3m0n
-
   ### Code or Repo Maintenance ###
-  - reduce log spam and clean up log messages (#41) @Shadowghost
-  - Remove jquery (#38) @grafixeyehero
+  - 10.8 support (#42) @crobibero
