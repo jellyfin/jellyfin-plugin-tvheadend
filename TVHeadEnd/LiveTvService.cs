@@ -472,10 +472,10 @@ namespace TVHeadEnd
             }
         }
 
-
-        public Task<List<MediaSourceInfo>> GetChannelStreamMediaSources(string channelId, CancellationToken cancellationToken)
+        public async Task<List<MediaSourceInfo>> GetChannelStreamMediaSources(string channelId, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var source = await GetChannelStream(channelId, string.Empty, cancellationToken);
+            return new List<MediaSourceInfo>() { source };
         }
 
         public async Task<SeriesTimerInfo> GetNewTimerDefaultsAsync(CancellationToken cancellationToken, ProgramInfo program = null)
@@ -630,9 +630,10 @@ namespace TVHeadEnd
             }
         }
 
-        public Task<List<MediaSourceInfo>> GetRecordingStreamMediaSources(string recordingId, CancellationToken cancellationToken)
+        public async Task<List<MediaSourceInfo>> GetRecordingStreamMediaSources(string recordingId, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var source = await GetRecordingStream(recordingId, string.Empty, cancellationToken);
+            return new List<MediaSourceInfo>() { source };
         }
 
         public async Task<IEnumerable<SeriesTimerInfo>> GetSeriesTimersAsync(CancellationToken cancellationToken)
