@@ -422,7 +422,7 @@ namespace TVHeadEnd
 
                 MediaSourceInfo livetvasset = new MediaSourceInfo();
 
-                livetvasset.Id = ticket.Id;
+                livetvasset.Id = channelId;
 
                 // Use HTTP basic auth in HTTP header instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
                 livetvasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Path;
@@ -452,8 +452,8 @@ namespace TVHeadEnd
             {
                 return new MediaSourceInfo
                 {
-                    Id = ticket.Id,
-                    Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Path + "?ticket=" + ticket.TicketParam,
+                    Id = channelId,
+                    Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Url,
                     Protocol = MediaProtocol.Http,
                     MediaStreams = new List<MediaStream>
                     {
@@ -581,7 +581,7 @@ namespace TVHeadEnd
 
                 MediaSourceInfo recordingasset = new MediaSourceInfo();
 
-                recordingasset.Id = ticket.Id;
+                recordingasset.Id = recordingId;
 
                 // Use HTTP basic auth instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
                 recordingasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Path;
@@ -610,8 +610,8 @@ namespace TVHeadEnd
             {
                 return new MediaSourceInfo
                 {
-                    Id = ticket.Id,
-                    Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Path + "?ticket=" + ticket.TicketParam,
+                    Id = recordingId,
+                    Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Url,
                     Protocol = MediaProtocol.Http,
                     MediaStreams = new List<MediaStream>
                     {
