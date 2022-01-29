@@ -48,9 +48,13 @@ namespace TVHeadEnd
             _htsConnectionHandler = HTSConnectionHandler.GetInstance(loggerFactory, httpClientFactory);
             _htsConnectionHandler.setLiveTvService(this);
 
-            var ticketLifeSpan = TimeSpan.FromSeconds(30); // TVH built-in minimum ticket-TTL.
-            _channelTicketHandler = new AccessTicketHandler(loggerFactory, _htsConnectionHandler, TIMEOUT, ticketLifeSpan, Channel);
-            _recordingTicketHandler = new AccessTicketHandler(loggerFactory, _htsConnectionHandler, TIMEOUT, ticketLifeSpan, Recording);
+            {
+                var lifeSpan = TimeSpan.FromSeconds(15);       // Revalidate tickets every 15 seconds
+                var requestTimeout = TimeSpan.FromSeconds(10); // First request retry after 10 seconds
+                var retries = 2;                               // Number of times to retry getting tickets
+                _channelTicketHandler = new AccessTicketHandler(loggerFactory, _htsConnectionHandler, requestTimeout, retries, lifeSpan, Channel);
+                _recordingTicketHandler = new AccessTicketHandler(loggerFactory, _htsConnectionHandler, requestTimeout, retries, lifeSpan, Recording);
+            }
 
             //Added for stream probing
             _mediaEncoder = mediaEncoder;
