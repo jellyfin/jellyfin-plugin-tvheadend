@@ -19,6 +19,7 @@ using TVHeadEnd.Helper;
 using TVHeadEnd.HTSP;
 using TVHeadEnd.HTSP_Responses;
 using TVHeadEnd.TimeoutHelper;
+using static TVHeadEnd.AccessTicketHandler.TicketType;
 
 namespace TVHeadEnd
 {
@@ -33,7 +34,7 @@ namespace TVHeadEnd
         private readonly TimeSpan TIMEOUT = TimeSpan.FromMinutes(5);
 
         private HTSConnectionHandler _htsConnectionHandler;
-        private volatile int _subscriptionId = 0;
+        private readonly AccessTicketHandler _channelTicketHandler, _recordingTicketHandler;
 
         private readonly ILogger<LiveTvService> _logger;
         public DateTime LastRecordingChange = DateTime.MinValue;
@@ -46,6 +47,14 @@ namespace TVHeadEnd
 
             _htsConnectionHandler = HTSConnectionHandler.GetInstance(loggerFactory, httpClientFactory);
             _htsConnectionHandler.setLiveTvService(this);
+
+            {
+                var lifeSpan = TimeSpan.FromSeconds(15);       // Revalidate tickets every 15 seconds
+                var requestTimeout = TimeSpan.FromSeconds(10); // First request retry after 10 seconds
+                var retries = 2;                               // Number of times to retry getting tickets
+                _channelTicketHandler = new AccessTicketHandler(loggerFactory, _htsConnectionHandler, requestTimeout, retries, lifeSpan, Channel);
+                _recordingTicketHandler = new AccessTicketHandler(loggerFactory, _htsConnectionHandler, requestTimeout, retries, lifeSpan, Recording);
+            }
 
             //Added for stream probing
             _mediaEncoder = mediaEncoder;
@@ -405,103 +414,72 @@ namespace TVHeadEnd
 
         public async Task<MediaSourceInfo> GetChannelStream(string channelId, string mediaSourceId, CancellationToken cancellationToken)
         {
-            HTSMessage getTicketMessage = new HTSMessage();
-            getTicketMessage.Method = "getTicket";
-            getTicketMessage.putField("channelId", channelId);
+            var ticket = await _channelTicketHandler.GetTicket(channelId, cancellationToken);
 
-            TaskWithTimeoutRunner<HTSMessage> twtr = new TaskWithTimeoutRunner<HTSMessage>(TIMEOUT);
-            TaskWithTimeoutResult<HTSMessage> twtRes = await twtr.RunWithTimeout(Task.Factory.StartNew<HTSMessage>(() =>
+            if (_htsConnectionHandler.GetEnableSubsMaudios())
             {
-                LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
-                _htsConnectionHandler.SendMessage(getTicketMessage, lbrh);
-                return lbrh.getResponse();
-            }));
+                _logger.LogInformation("[TVHclient] LiveTvService.GetChannelStream: support for live TV subtitles and multiple audio tracks is enabled");
 
-            if (twtRes.HasTimeout)
-            {
-                _logger.LogError("[TVHclient] LiveTvService.GetChannelStream: can't obtain playback authentication ticket from TVH because the timeout was reached");
+                MediaSourceInfo livetvasset = new MediaSourceInfo();
+
+                livetvasset.Id = channelId;
+
+                // Use HTTP basic auth in HTTP header instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
+                livetvasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Path;
+                livetvasset.Protocol = MediaProtocol.Http;
+                livetvasset.RequiredHttpHeaders = _htsConnectionHandler.GetHeaders();
+
+                // Probe the asset stream to determine available sub-streams
+                string livetvasset_probeUrl = "" + livetvasset.Path;
+
+                // If enabled, force video deinterlacing for channels
+                if (_htsConnectionHandler.GetForceDeinterlace())
+                {
+                    _logger.LogInformation("[TVHclient] LiveTvService.GetChannelStream: force video deinterlacing for all channels and recordings is enabled");
+
+                    foreach (MediaStream i in livetvasset.MediaStreams)
+                    {
+                        if (i.Type == MediaStreamType.Video && i.IsInterlaced == false)
+                        {
+                            i.IsInterlaced = true;
+                        }
+                    }
+                }
+
+                return livetvasset;
             }
             else
             {
-                HTSMessage getTicketResponse = twtRes.Result;
-
-                if (_subscriptionId == int.MaxValue)
+                return new MediaSourceInfo
                 {
-                    _subscriptionId = 0;
-                }
-                int currSubscriptionId = _subscriptionId++;
-
-                if (_htsConnectionHandler.GetEnableSubsMaudios())
-                {
-
-                    _logger.LogInformation("[TVHclient] LiveTvService.GetChannelStream: support for live TV subtitles and multiple audio tracks is enabled");
-
-                    MediaSourceInfo livetvasset = new MediaSourceInfo();
-
-                    livetvasset.Id = "" + currSubscriptionId;
-
-                    // Use HTTP basic auth in HTTP header instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
-                    livetvasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + getTicketResponse.getString("path");
-                    livetvasset.Protocol = MediaProtocol.Http;
-                    livetvasset.RequiredHttpHeaders = _htsConnectionHandler.GetHeaders();
-
-                    // Probe the asset stream to determine available sub-streams
-                    string livetvasset_probeUrl = "" + livetvasset.Path;
-
-                    // If enabled, force video deinterlacing for channels
-                    if(_htsConnectionHandler.GetForceDeinterlace())
+                    Id = channelId,
+                    Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Url,
+                    Protocol = MediaProtocol.Http,
+                    MediaStreams = new List<MediaStream>
                     {
-
-                        _logger.LogInformation("[TVHclient] LiveTvService.GetChannelStream: force video deinterlacing for all channels and recordings is enabled");
-
-                        foreach (MediaStream i in livetvasset.MediaStreams)
+                        new MediaStream
                         {
-                            if (i.Type == MediaStreamType.Video && i.IsInterlaced == false)
-                            {
-                                i.IsInterlaced = true;
-                            }
+                            Type = MediaStreamType.Video,
+                            // Set the index to -1 because we don't know the exact index of the video stream within the container
+                            Index = -1,
+                            // Set to true if unknown to enable deinterlacing
+                            IsInterlaced = true
+                        },
+                        new MediaStream
+                        {
+                            Type = MediaStreamType.Audio,
+                            // Set the index to -1 because we don't know the exact index of the audio stream within the container
+                            Index = -1
                         }
-
                     }
-
-                    return livetvasset;
-
-                }
-                else
-                {
-                    return new MediaSourceInfo
-                    {
-                        Id = "" + currSubscriptionId,
-                        Path = _htsConnectionHandler.GetHttpBaseUrl() + getTicketResponse.getString("path") + "?ticket=" + getTicketResponse.getString("ticket"),
-                        Protocol = MediaProtocol.Http,
-                        MediaStreams = new List<MediaStream>
-                            {
-                                new MediaStream
-                                {
-                                    Type = MediaStreamType.Video,
-                                    // Set the index to -1 because we don't know the exact index of the video stream within the container
-                                    Index = -1,
-                                    // Set to true if unknown to enable deinterlacing
-                                    IsInterlaced = true
-                                },
-                                new MediaStream
-                                {
-                                    Type = MediaStreamType.Audio,
-                                    // Set the index to -1 because we don't know the exact index of the audio stream within the container
-                                    Index = -1
-                                }
-                            }
-                    };
-
-                }
+                };
             }
-
-            throw new TimeoutException("");
         }
 
-        public Task<List<MediaSourceInfo>> GetChannelStreamMediaSources(string channelId, CancellationToken cancellationToken)
+        public async Task<List<MediaSourceInfo>> GetChannelStreamMediaSources(string channelId, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var source = await GetChannelStream(channelId, string.Empty, cancellationToken);
+            return new List<MediaSourceInfo>() { source };
         }
 
         public async Task<SeriesTimerInfo> GetNewTimerDefaultsAsync(CancellationToken cancellationToken, ProgramInfo program = null)
@@ -595,103 +573,71 @@ namespace TVHeadEnd
 
         public async Task<MediaSourceInfo> GetRecordingStream(string recordingId, string mediaSourceId, CancellationToken cancellationToken)
         {
-            HTSMessage getTicketMessage = new HTSMessage();
-            getTicketMessage.Method = "getTicket";
-            getTicketMessage.putField("dvrId", recordingId);
+            var ticket = await _recordingTicketHandler.GetTicket(recordingId, cancellationToken);
 
-            TaskWithTimeoutRunner<HTSMessage> twtr = new TaskWithTimeoutRunner<HTSMessage>(TIMEOUT);
-            TaskWithTimeoutResult<HTSMessage> twtRes = await twtr.RunWithTimeout(Task.Factory.StartNew<HTSMessage>(() =>
+            if (_htsConnectionHandler.GetEnableSubsMaudios())
             {
-                LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
-                _htsConnectionHandler.SendMessage(getTicketMessage, lbrh);
-                return lbrh.getResponse();
-            }));
+                _logger.LogInformation("[TVHclient] LiveTvService.GetRecordingStream: support for live TV subtitles and multiple audio tracks is enabled");
 
-            if (twtRes.HasTimeout)
-            {
-                _logger.LogError("[TVHclient] LiveTvService.GetRecordingStream: timeout reached while obtaining playback authentication ticket from TVH");
+                MediaSourceInfo recordingasset = new MediaSourceInfo();
+
+                recordingasset.Id = recordingId;
+
+                // Use HTTP basic auth instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
+                recordingasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Path;
+                recordingasset.Protocol = MediaProtocol.Http;
+
+                // Set asset source and type for stream probing and logging
+                string recordingasset_probeUrl = "" + recordingasset.Path;
+
+                // If enabled, force video deinterlacing for recordings
+                if (_htsConnectionHandler.GetForceDeinterlace())
+                {
+                    _logger.LogInformation("[TVHclient] LiveTvService.GetRecordingStream: force video deinterlacing for all channels and recordings is enabled");
+
+                    foreach (MediaStream i in recordingasset.MediaStreams)
+                    {
+                        if (i.Type == MediaStreamType.Video && i.IsInterlaced == false)
+                        {
+                            i.IsInterlaced = true;
+                        }
+                    }
+                }
+
+                return recordingasset;
             }
             else
             {
-                HTSMessage getTicketResponse = twtRes.Result;
-
-                if (_subscriptionId == int.MaxValue)
+                return new MediaSourceInfo
                 {
-                    _subscriptionId = 0;
-                }
-                int currSubscriptionId = _subscriptionId++;
-
-                if (_htsConnectionHandler.GetEnableSubsMaudios())
-                {
-
-                    _logger.LogInformation("[TVHclient] LiveTvService.GetRecordingStream: support for live TV subtitles and multiple audio tracks is enabled");
-
-                    MediaSourceInfo recordingasset = new MediaSourceInfo();
-
-                    recordingasset.Id = "" + currSubscriptionId;
-
-                    // Use HTTP basic auth instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
-                    recordingasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + getTicketResponse.getString("path");
-                    recordingasset.Protocol = MediaProtocol.Http;
-
-                    // Set asset source and type for stream probing and logging
-                    string recordingasset_probeUrl = "" + recordingasset.Path;
-
-                    // If enabled, force video deinterlacing for recordings
-                    if (_htsConnectionHandler.GetForceDeinterlace())
+                    Id = recordingId,
+                    Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Url,
+                    Protocol = MediaProtocol.Http,
+                    MediaStreams = new List<MediaStream>
                     {
-
-                        _logger.LogInformation("[TVHclient] LiveTvService.GetRecordingStream: force video deinterlacing for all channels and recordings is enabled");
-
-                        foreach (MediaStream i in recordingasset.MediaStreams)
+                        new MediaStream
                         {
-                            if (i.Type == MediaStreamType.Video && i.IsInterlaced == false)
-                            {
-                                i.IsInterlaced = true;
-                            }
+                            Type = MediaStreamType.Video,
+                            // Set the index to -1 because we don't know the exact index of the video stream within the container
+                            Index = -1,
+                            // Set to true if unknown to enable deinterlacing
+                            IsInterlaced = true
+                        },
+                        new MediaStream
+                        {
+                            Type = MediaStreamType.Audio,
+                            // Set the index to -1 because we don't know the exact index of the audio stream within the container
+                            Index = -1
                         }
-
                     }
-
-                    return recordingasset;
-
-                }
-                else
-                {
-
-                    return new MediaSourceInfo
-                    {
-                        Id = "" + currSubscriptionId,
-                        Path = _htsConnectionHandler.GetHttpBaseUrl() + getTicketResponse.getString("path") + "?ticket=" + getTicketResponse.getString("ticket"),
-                        Protocol = MediaProtocol.Http,
-                        MediaStreams = new List<MediaStream>
-                            {
-                                new MediaStream
-                                {
-                                    Type = MediaStreamType.Video,
-                                    // Set the index to -1 because we don't know the exact index of the video stream within the container
-                                    Index = -1,
-                                    // Set to true if unknown to enable deinterlacing
-                                    IsInterlaced = true
-                                },
-                                new MediaStream
-                                {
-                                    Type = MediaStreamType.Audio,
-                                    // Set the index to -1 because we don't know the exact index of the audio stream within the container
-                                    Index = -1
-                                }
-                            }
-                    };
-
-                }
+                };
             }
-
-            throw new TimeoutException();
         }
 
-        public Task<List<MediaSourceInfo>> GetRecordingStreamMediaSources(string recordingId, CancellationToken cancellationToken)
+        public async Task<List<MediaSourceInfo>> GetRecordingStreamMediaSources(string recordingId, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var source = await GetRecordingStream(recordingId, string.Empty, cancellationToken);
+            return new List<MediaSourceInfo>() { source };
         }
 
         public async Task<IEnumerable<SeriesTimerInfo>> GetSeriesTimersAsync(CancellationToken cancellationToken)

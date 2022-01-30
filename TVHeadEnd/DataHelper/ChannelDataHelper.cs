@@ -187,6 +187,7 @@ namespace TVHeadEnd.DataHelper
                                             case "fhdtv":
                                             case "uhdtv":
                                                 ci.ChannelType = ChannelType.TV;
+                                                ci.IsHD = type != "sdtv";
                                                 serviceFound = true;
                                                 break;
                                             case "other":
