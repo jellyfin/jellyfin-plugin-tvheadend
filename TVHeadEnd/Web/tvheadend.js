@@ -15,6 +15,8 @@ export default function (view, params) {
             page.querySelector('#txtPassword').value = config.Password || '';
             page.querySelector('#txtPriority').value = config.Priority || '5';
             page.querySelector('#txtProfile').value = config.Profile || '';
+            page.querySelector('#txtPrePadding').value = config.Pre_Padding || '0';
+            page.querySelector('#txtPostPadding').value = config.Post_Padding || '0';
             page.querySelector('#selChannelType').value = config.ChannelType || 'Ignore';
             page.querySelector('#chkHideRecordingsChannel').checked = config.HideRecordingsChannel || false;
             page.querySelector('#chkEnableSubsMaudios').checked = config.EnableSubsMaudios || false;
@@ -35,6 +37,8 @@ export default function (view, params) {
             config.Password = form.querySelector('#txtPassword').value;
             config.Priority = form.querySelector('#txtPriority').value;
             config.Profile = form.querySelector('#txtProfile').value;
+            config.Pre_Padding = form.querySelector('#txtPrePadding').value;
+            config.Post_Padding = form.querySelector('#txtPostPadding').value;
             config.ChannelType = form.querySelector('#selChannelType').value;
             config.HideRecordingsChannel = form.querySelector('#chkHideRecordingsChannel').checked;
             config.EnableSubsMaudios = form.querySelector('#chkEnableSubsMaudios').checked;
