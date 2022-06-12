@@ -16,6 +16,8 @@ namespace TVHeadEnd.Configuration
         public string Password { get; set; }
         public int Priority { get; set; }
         public string Profile { get; set; }
+        public int Pre_Padding { get; set; }
+        public int Post_Padding { get; set; }
         public string ChannelType { get; set; }
         public bool HideRecordingsChannel { get; set; }
         public bool EnableSubsMaudios { get; set; }
@@ -31,6 +33,8 @@ namespace TVHeadEnd.Configuration
             Password = "";
             Priority = 5;
             Profile = "";
+            Pre_Padding = 0;
+            Post_Padding = 0;
             ChannelType = "Ignore";
             HideRecordingsChannel = false;
             EnableSubsMaudios = false;
