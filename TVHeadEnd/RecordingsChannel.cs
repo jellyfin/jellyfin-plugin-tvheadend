@@ -230,6 +230,7 @@ namespace TVHeadEnd
                 OfficialRating = item.OfficialRating,
                 CommunityRating = item.CommunityRating,
                 ContentType = item.IsMovie ? ChannelMediaContentType.Movie : (item.IsSeries ? ChannelMediaContentType.Episode : ChannelMediaContentType.Clip),
+                //ContentType = string.IsNullOrEmpty(item.EpisodeTitle) ? ChannelMediaContentType.Movie : ChannelMediaContentType.Episode,
                 Genres = item.Genres,
                 ImageUrl = item.ImageUrl,
                 //HomePageUrl = item.HomePageUrl
@@ -246,7 +247,8 @@ namespace TVHeadEnd
                     }
                 },
                 //ParentIndexNumber = item.ParentIndexNumber,
-                PremiereDate = item.OriginalAirDate,
+                PremiereDate = item.StartDate,
+                DateCreated = item.StartDate,
                 //ProductionYear = item.ProductionYear,
                 //Studios = item.Studios,
                 Type = ChannelItemType.Media,
@@ -254,7 +256,9 @@ namespace TVHeadEnd
                 Overview = item.Overview,
                 //People = item.People
                 IsLiveStream = item.Status == MediaBrowser.Model.LiveTv.RecordingStatus.InProgress,
-                Etag = item.Status.ToString()
+                Etag = item.Status.ToString(),
+                StartDate = item.StartDate,
+                EndDate = item.EndDate
             };
 
             return channelItem;
