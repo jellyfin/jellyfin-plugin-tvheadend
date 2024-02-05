@@ -113,7 +113,7 @@ namespace TVHeadEnd
             {
                 return Task.FromResult(new DynamicImageResponse
                 {
-                    Path = "https://github.com/MediaBrowser/Tvheadend/raw/master/TVHeadEnd/Images/TVHeadEnd.png?raw=true",
+                    Path = "https://repo.jellyfin.org/releases/plugin/images/jellyfin-plugin-tvheadend.png",
                     Protocol = MediaProtocol.Http,
                     HasImage = true
                 });
