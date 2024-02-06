@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
@@ -278,39 +276,10 @@ namespace TVHeadEnd
             }
         }
 
-        public string GetChannelImageUrl(string channelId)
-        {
-            _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: channelId: {id}", channelId);
-
-            String channelIcon = _channelDataHelper.GetChannelIcon4ChannelId(channelId);
-
-            if (string.IsNullOrEmpty(channelIcon))
-            {
-                return null;
-            }
-
-            if (channelIcon.StartsWith("http"))
-            {
-                return _channelDataHelper.GetChannelIcon4ChannelId(channelId);
-            }
-            else
-            {
-                return $"http://{Uri.EscapeDataString(_userName)}:{Uri.EscapeDataString(_password)}@{_tvhServerName}:{_httpPort}{_webRoot}/{channelIcon}";
-            }
-        }
-
         public Dictionary<string, string> GetHeaders()
         {
             return new Dictionary<string, string>(_headers);
         }
-
-        //private static Stream ImageToPNGStream(Image image)
-        //{
-        //    Stream stream = new System.IO.MemoryStream();
-        //    image.Save(stream, ImageFormat.Png);
-        //    stream.Position = 0;
-        //    return stream;
-        //}
 
         private void ensureConnection()
         {
