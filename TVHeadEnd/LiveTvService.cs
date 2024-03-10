@@ -1,15 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Controller.Drawing;
+using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.LiveTv;
-using MediaBrowser.Controller.MediaEncoding;
+using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.LiveTv;
@@ -23,13 +21,10 @@ using static TVHeadEnd.AccessTicketHandler.TicketType;
 
 namespace TVHeadEnd
 {
-    public class LiveTvService : ILiveTvService
+    public class LiveTvService : ILiveTvService, IDynamicImageProvider
     {
         public event EventHandler DataSourceChanged;
         public event EventHandler<RecordingStatusChangedEventArgs> RecordingStatusChanged;
-
-        //Added for stream probing
-        private readonly IMediaEncoder _mediaEncoder;
 
         private readonly TimeSpan TIMEOUT = TimeSpan.FromMinutes(5);
 
@@ -39,9 +34,8 @@ namespace TVHeadEnd
         private readonly ILogger<LiveTvService> _logger;
         public DateTime LastRecordingChange = DateTime.MinValue;
 
-        public LiveTvService(ILoggerFactory loggerFactory, IMediaEncoder mediaEncoder, IHttpClientFactory httpClientFactory)
+        public LiveTvService(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory)
         {
-            //System.Diagnostics.StackTrace t = new System.Diagnostics.StackTrace();
             _logger = loggerFactory.CreateLogger<LiveTvService>();
             _logger.LogDebug("[TVHclient] LiveTvService()");
 
@@ -55,9 +49,6 @@ namespace TVHeadEnd
                 _channelTicketHandler = new AccessTicketHandler(loggerFactory, _htsConnectionHandler, requestTimeout, retries, lifeSpan, Channel);
                 _recordingTicketHandler = new AccessTicketHandler(loggerFactory, _htsConnectionHandler, requestTimeout, retries, lifeSpan, Recording);
             }
-
-            //Added for stream probing
-            _mediaEncoder = mediaEncoder;
         }
 
         public string HomePageUrl { get { return "http://tvheadend.org/"; } }
@@ -201,88 +192,9 @@ namespace TVHeadEnd
             });
         }
 
-        public async Task CreateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken)
+        public Task CreateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken)
         {
-            // Dummy method to avoid warnings
-            await Task.Factory.StartNew<int>(() => { return 0; });
-
             throw new NotImplementedException();
-
-
-            //int timeOut = await WaitForInitialLoadTask(cancellationToken);
-            //if (timeOut == -1 || cancellationToken.IsCancellationRequested)
-            //{
-            //    _logger.LogDebug("[TVHclient] LiveTvService.CreateSeriesTimerAsync: call cancelled or timed out - returning empty list");
-            //    return;
-            //}
-
-            ////_logger.LogDebug("[TVHclient] LiveTvService.CreateSeriesTimerAsync: got SeriesTimerInfo: {spam}", dump(info));
-
-            //HTSMessage createSeriesTimerMessage = new HTSMessage();
-            //createSeriesTimerMessage.Method = "addAutorecEntry";
-            //createSeriesTimerMessage.putField("title", info.Name);
-            //if (!info.RecordAnyChannel)
-            //{
-            //    createSeriesTimerMessage.putField("channelId", info.ChannelId);
-            //}
-            //createSeriesTimerMessage.putField("minDuration", 0);
-            //createSeriesTimerMessage.putField("maxDuration", 0);
-
-            //int tempPriority = info.Priority;
-            //if (tempPriority == 0)
-            //{
-            //    tempPriority = _priority; // info.Priority delivers 0 if timers is newly created - no GUI
-            //}
-            //createSeriesTimerMessage.putField("priority", tempPriority);
-            //createSeriesTimerMessage.putField("configName", _profile);
-            //createSeriesTimerMessage.putField("daysOfWeek", AutorecDataHelper.getDaysOfWeekFromList(info.Days));
-
-            //if (!info.RecordAnyTime)
-            //{
-            //    createSeriesTimerMessage.putField("approxTime", AutorecDataHelper.getMinutesFromMidnight(info.StartDate));
-            //}
-            //createSeriesTimerMessage.putField("startExtra", (long)(info.PrePaddingSeconds / 60L));
-            //createSeriesTimerMessage.putField("stopExtra", (long)(info.PostPaddingSeconds / 60L));
-            //createSeriesTimerMessage.putField("comment", info.Overview);
-
-
-            ////_logger.LogDebug("[TVHclient] LiveTvService.CreateSeriesTimerAsync: created HTSP message: {msg}", createSeriesTimerMessage.ToString());
-
-
-            ///*
-            //        public DateTime EndDate { get; set; }
-            //        public string ProgramId { get; set; }
-            //        public bool RecordNewOnly { get; set; }
-            // */
-
-            ////HTSMessage createSeriesTimerResponse = await Task.Factory.StartNew<HTSMessage>(() =>
-            ////{
-            ////    LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
-            ////    _htsConnection.sendMessage(createSeriesTimerMessage, lbrh);
-            ////    return lbrh.getResponse();
-            ////});
-
-            //TaskWithTimeoutRunner<HTSMessage> twtr = new TaskWithTimeoutRunner<HTSMessage>(TIMEOUT);
-            //TaskWithTimeoutResult<HTSMessage> twtRes = await  twtr.RunWithTimeout(Task.Factory.StartNew<HTSMessage>(() =>
-            //{
-            //    LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
-            //    _htsConnection.sendMessage(createSeriesTimerMessage, lbrh);
-            //    return lbrh.getResponse();
-            //}));
-
-            //if (twtRes.HasTimeout)
-            //{
-            //    _logger.LogError("[TVHclient] LiveTvService.CreateSeriesTimerAsync: can't create series because the timeout was reached");
-            //}
-            //else
-            //{
-            //    HTSMessage createSeriesTimerResponse = twtRes.Result;
-            //    Boolean success = createSeriesTimerResponse.getInt("success", 0) == 1;
-            //    if (!success)
-            //    {
-            //        _logger.LogError("[TVHclient] LiveTvService.CreateSeriesTimerAsync: can't create series timer: '{why}'", createSeriesTimerResponse.getString("error"));
-            //    }
-            //}
         }
 
         public async Task CreateTimerAsync(TimerInfo info, CancellationToken cancellationToken)
@@ -399,17 +311,7 @@ namespace TVHeadEnd
                 return new List<ChannelInfo>();
             }
 
-            var list = twtRes.Result.ToList();
-
-            foreach (var channel in list)
-            {
-                if (string.IsNullOrEmpty(channel.ImageUrl))
-                {
-                    channel.ImageUrl = _htsConnectionHandler.GetChannelImageUrl(channel.Id);
-                }
-            }
-
-            return list;
+            return twtRes.Result.ToList();
         }
 
         public async Task<MediaSourceInfo> GetChannelStream(string channelId, string mediaSourceId, CancellationToken cancellationToken)
@@ -497,12 +399,6 @@ namespace TVHeadEnd
             });
         }
 
-        public Task<ImageStream> GetProgramImageAsync(string programId, string channelId, CancellationToken cancellationToken)
-        {
-            // Leave as is. This is handled by supplying image url to ProgramInfo
-            throw new NotImplementedException();
-        }
-
         public async Task<IEnumerable<ProgramInfo>> GetProgramsAsync(string channelId, DateTime startDateUtc, DateTime endDateUtc, CancellationToken cancellationToken)
         {
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
@@ -533,12 +429,6 @@ namespace TVHeadEnd
             }
 
             return twtRes.Result;
-        }
-
-        public Task<ImageStream> GetRecordingImageAsync(string recordingId, CancellationToken cancellationToken)
-        {
-            // Leave as is. This is handled by supplying image url to RecordingInfo
-            throw new NotImplementedException();
         }
 
         public async Task<IEnumerable<MyRecordingInfo>> GetAllRecordingsAsync(CancellationToken cancellationToken)
@@ -792,6 +682,32 @@ namespace TVHeadEnd
                     }
                 }
             }
+        }
+
+        public IEnumerable<ImageType> GetSupportedImages(BaseItem item)
+        {
+            return new[] { ImageType.Primary };
+        }
+
+        public async Task<DynamicImageResponse> GetImage(BaseItem item, ImageType type, CancellationToken cancellationToken)
+        {
+            var image = await _htsConnectionHandler.GetChannelImage(item.ExternalId, cancellationToken);
+            if (image == null)
+            {
+                return new DynamicImageResponse();
+            }
+
+            return new DynamicImageResponse
+            {
+                Format = image.Format,
+                Stream = image.Stream,
+                HasImage = true,
+            };
+        }
+
+        public bool Supports(BaseItem item)
+        {
+            return item.ServiceName == Name && item is LiveTvChannel;
         }
 
         /***********/
