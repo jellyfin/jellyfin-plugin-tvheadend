@@ -131,9 +131,10 @@ namespace TVHeadEnd.HTSP_Responses
                         pi.Overview = currEventMessage.getString("description");
                     }
 
-                    if (currEventMessage.containsField("summary"))
+                    if (currEventMessage.containsField("subtitle"))
                     {
-                        pi.EpisodeTitle = currEventMessage.getString("summary");
+                        pi.EpisodeTitle = currEventMessage.getString("subtitle");
+                        pi.IsSeries = true;
                     }
 
                     if (currEventMessage.containsField("firstAired"))
