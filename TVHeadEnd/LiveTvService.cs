@@ -431,6 +431,8 @@ namespace TVHeadEnd
 
                 // Probe the asset stream to determine available sub-streams
                 string livetvasset_probeUrl = "" + livetvasset.Path;
+                string livetvasset_source = "LiveTV";
+                await ProbeStream(livetvasset, livetvasset_probeUrl, livetvasset_source, cancellationToken);
 
                 // If enabled, force video deinterlacing for channels
                 if (_htsConnectionHandler.GetForceDeinterlace())
@@ -474,6 +476,143 @@ namespace TVHeadEnd
                     }
                 };
             }
+        }
+
+        private async Task ProbeStream(MediaSourceInfo mediaSourceInfo, string probeUrl, string source, CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("[TVHclient] Probe stream for {source}", source);
+            _logger.LogInformation("[TVHclient] Probe URL: {probeUrl}", probeUrl);
+
+            MediaInfoRequest req = new MediaInfoRequest
+            {
+                MediaType = MediaBrowser.Model.Dlna.DlnaProfileType.Video,
+                MediaSource = mediaSourceInfo,
+                ExtractChapters = false,
+            };
+
+            var originalRuntime = mediaSourceInfo.RunTimeTicks;
+            Stopwatch stopWatch = new Stopwatch();
+            stopWatch.Start();
+            MediaInfo info = await _mediaEncoder.GetMediaInfo(req, cancellationToken).ConfigureAwait(false);
+            stopWatch.Stop();
+            TimeSpan ts = stopWatch.Elapsed;
+            string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}", ts.Hours, ts.Minutes, ts.Seconds, ts.Milliseconds / 10);
+            _logger.LogInformation("[TVHclient] Probe RunTime " + elapsedTime);
+
+            if (info != null)
+            {
+                _logger.LogInformation("[TVHclient] Probe returned:");
+
+                mediaSourceInfo.Bitrate = info.Bitrate;
+                _logger.LogInformation("[TVHclient]         BitRate:                    " + info.Bitrate);
+
+                mediaSourceInfo.Container = info.Container;
+                _logger.LogInformation("[TVHclient]         Container:                  " + info.Container);
+
+                mediaSourceInfo.MediaStreams = info.MediaStreams;
+                _logger.LogInformation("[TVHclient]         MediaStreams:               ");
+                LogMediaStreamList(info.MediaStreams, "                       ");
+
+                mediaSourceInfo.RunTimeTicks = info.RunTimeTicks;
+                _logger.LogInformation("[TVHclient]         RunTimeTicks:               " + info.RunTimeTicks);
+
+                mediaSourceInfo.Size = info.Size;
+                _logger.LogInformation("[TVHclient]         Size:                       " + info.Size);
+
+                mediaSourceInfo.Timestamp = info.Timestamp;
+                _logger.LogInformation("[TVHclient]         Timestamp:                  " + info.Timestamp);
+
+                mediaSourceInfo.Video3DFormat = info.Video3DFormat;
+                _logger.LogInformation("[TVHclient]         Video3DFormat:              " + info.Video3DFormat);
+
+                mediaSourceInfo.VideoType = info.VideoType;
+                _logger.LogInformation("[TVHclient]         VideoType:                  " + info.VideoType);
+
+                mediaSourceInfo.RequiresClosing = true;
+                _logger.LogInformation("[TVHclient]         RequiresClosing:            " + true);
+
+                mediaSourceInfo.RequiresOpening = true;
+                _logger.LogInformation("[TVHclient]         RequiresOpening:            " + true);
+
+                mediaSourceInfo.SupportsDirectPlay = true;
+                _logger.LogInformation("[TVHclient]         SupportsDirectPlay:         " + true);
+
+                mediaSourceInfo.SupportsDirectStream = true;
+                _logger.LogInformation("[TVHclient]         SupportsDirectStream:       " + true);
+
+                mediaSourceInfo.SupportsTranscoding = true;
+                _logger.LogInformation("[TVHclient]         SupportsTranscoding:        " + true);
+
+                mediaSourceInfo.DefaultSubtitleStreamIndex = null;
+                _logger.LogInformation("[TVHclient]         DefaultSubtitleStreamIndex: n/a");
+
+                if (!originalRuntime.HasValue)
+                {
+                    mediaSourceInfo.RunTimeTicks = null;
+                    _logger.LogInformation("[TVHclient]         Original runtime:           n/a");
+                }
+
+                var audioStream = mediaSourceInfo.MediaStreams.FirstOrDefault(i => i.Type == MediaBrowser.Model.Entities.MediaStreamType.Audio);
+                if (audioStream == null || audioStream.Index == -1)
+                {
+                    mediaSourceInfo.DefaultAudioStreamIndex = null;
+                    _logger.LogInformation("[TVHclient]         DefaultAudioStreamIndex:    n/a");
+                }
+                else
+                {
+                    mediaSourceInfo.DefaultAudioStreamIndex = audioStream.Index;
+                    _logger.LogInformation("[TVHclient]         DefaultAudioStreamIndex:    '" + info.DefaultAudioStreamIndex + "'");
+                }
+            }
+            else
+            {
+                _logger.LogError("[TVHclient] Cannot probe {source} stream", source);
+            }
+        }
+
+        private void LogMediaStreamList(IReadOnlyList<MediaStream> theList, String prefix)
+        {
+            foreach (MediaStream i in theList)
+                LogMediaStream(i, prefix);
+        }
+
+        private void LogMediaStream(MediaStream ms, String prefix)
+        {
+            _logger.LogInformation(prefix + "AspectRatio             " + ms.AspectRatio);
+            _logger.LogInformation(prefix + "AverageFrameRate        " + ms.AverageFrameRate);
+            _logger.LogInformation(prefix + "BitDepth                " + ms.BitDepth);
+            _logger.LogInformation(prefix + "BitRate                 " + ms.BitRate);
+            _logger.LogInformation(prefix + "ChannelLayout           " + ms.ChannelLayout); // Object
+            _logger.LogInformation(prefix + "Channels                " + ms.Channels);
+            _logger.LogInformation(prefix + "Codec                   " + ms.Codec); // Object
+            _logger.LogInformation(prefix + "CodecTag                " + ms.CodecTag); // Object
+            _logger.LogInformation(prefix + "Comment                 " + ms.Comment);
+            _logger.LogInformation(prefix + "DeliveryMethod          " + ms.DeliveryMethod); // Object
+            _logger.LogInformation(prefix + "DeliveryUrl             " + ms.DeliveryUrl);
+            //_logger.LogInformation(prefix + "ExternalId              " + ms.ExternalId);
+            _logger.LogInformation(prefix + "Height                  " + ms.Height);
+            _logger.LogInformation(prefix + "Index                   " + ms.Index);
+            _logger.LogInformation(prefix + "IsAnamorphic            " + ms.IsAnamorphic);
+            _logger.LogInformation(prefix + "IsDefault               " + ms.IsDefault);
+            _logger.LogInformation(prefix + "IsExternal              " + ms.IsExternal);
+            _logger.LogInformation(prefix + "IsExternalUrl           " + ms.IsExternalUrl);
+            _logger.LogInformation(prefix + "IsForced                " + ms.IsForced);
+            _logger.LogInformation(prefix + "IsInterlaced            " + ms.IsInterlaced);
+            _logger.LogInformation(prefix + "IsTextSubtitleStream    " + ms.IsTextSubtitleStream);
+            _logger.LogInformation(prefix + "Language                " + ms.Language);
+            _logger.LogInformation(prefix + "Level                   " + ms.Level);
+            _logger.LogInformation(prefix + "PacketLength            " + ms.PacketLength);
+            _logger.LogInformation(prefix + "Path                    " + ms.Path);
+            _logger.LogInformation(prefix + "PixelFormat             " + ms.PixelFormat);
+            _logger.LogInformation(prefix + "Profile                 " + ms.Profile);
+            _logger.LogInformation(prefix + "RealFrameRate           " + ms.RealFrameRate);
+            _logger.LogInformation(prefix + "RefFrames               " + ms.RefFrames);
+            _logger.LogInformation(prefix + "SampleRate              " + ms.SampleRate);
+            _logger.LogInformation(prefix + "Score                   " + ms.Score);
+            _logger.LogInformation(prefix + "SupportsExternalStream  " + ms.SupportsExternalStream);
+            _logger.LogInformation(prefix + "Type                    " + ms.Type); // Object
+            _logger.LogInformation(prefix + "Width                   " + ms.Width);
+            _logger.LogInformation(prefix + "========================");
         }
 
         public async Task<List<MediaSourceInfo>> GetChannelStreamMediaSources(string channelId, CancellationToken cancellationToken)
@@ -589,6 +728,8 @@ namespace TVHeadEnd
 
                 // Set asset source and type for stream probing and logging
                 string recordingasset_probeUrl = "" + recordingasset.Path;
+                string recordingasset_source = "Recording";
+                await ProbeStream(recordingasset, recordingasset_probeUrl, recordingasset_source, cancellationToken);
 
                 // If enabled, force video deinterlacing for recordings
                 if (_htsConnectionHandler.GetForceDeinterlace())
