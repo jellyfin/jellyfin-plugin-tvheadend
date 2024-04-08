@@ -113,7 +113,7 @@ namespace TVHeadEnd
             {
                 return Task.FromResult(new DynamicImageResponse
                 {
-                    Path = "https://github.com/MediaBrowser/Tvheadend/raw/master/TVHeadEnd/Images/TVHeadEnd.png?raw=true",
+                    Path = "https://repo.jellyfin.org/releases/plugin/images/jellyfin-plugin-tvheadend.png",
                     Protocol = MediaProtocol.Http,
                     HasImage = true
                 });
@@ -268,14 +268,14 @@ namespace TVHeadEnd
                 var tvhServerName = config.TVH_ServerName.Trim();
                 var httpPort = config.HTTP_Port;
                 var htspPort = config.HTSP_Port;
-                var webRoot = config.WebRoot;            
+                var webRoot = config.WebRoot;
                 if (webRoot.EndsWith("/"))
                 {
                     webRoot = webRoot.Substring(0, webRoot.Length - 1);
                 }
                 var userName = config.Username.Trim();
                 var password = config.Password.Trim();
-                return "http://" + userName + ":" + password + "@" + tvhServerName + ":" + httpPort + webRoot + "/dvrfile/" + Id;
+                return $"http://{Uri.EscapeDataString(userName)}:{Uri.EscapeDataString(password)}@{tvhServerName}:{httpPort}{webRoot}/dvrfile/{Id}";
             }
             catch (Exception)
             {
