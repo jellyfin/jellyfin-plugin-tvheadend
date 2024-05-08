@@ -32,6 +32,7 @@ namespace TVHeadEnd
 
         private volatile Boolean _initialLoadFinished = false;
         private volatile Boolean _connected = false;
+        private volatile Boolean _configured = false;
 
         private HTSConnectionAsync _htsConnection;
         private int _priority;
@@ -56,7 +57,7 @@ namespace TVHeadEnd
 
         private Dictionary<string, string> _headers = new Dictionary<string, string>();
 
-        private HTSConnectionHandler(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory)
+        public HTSConnectionHandler(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory)
         {
             _loggerFactory = loggerFactory;
             _logger = loggerFactory.CreateLogger<HTSConnectionHandler>();
@@ -68,8 +69,6 @@ namespace TVHeadEnd
             _channelDataHelper = new ChannelDataHelper(loggerFactory.CreateLogger<ChannelDataHelper>());
             _dvrDataHelper = new DvrDataHelper(loggerFactory.CreateLogger<DvrDataHelper>());
             _autorecDataHelper = new AutorecDataHelper(loggerFactory.CreateLogger<AutorecDataHelper>());
-
-            init();
 
             _channelDataHelper.SetChannelType4Other(_channelType);
         }
@@ -113,7 +112,15 @@ namespace TVHeadEnd
 
         private void init()
         {
+            if(_configured == true)
+            {
+                return ;
+            }
+            _logger.LogDebug("[TVHclient] HTSConnectionHandler - Init()");
+
             var config = Plugin.Instance.Configuration;
+
+            _logger.LogDebug("[TVHclient] HTSConnectionHandler - Config initialized");
 
             if (string.IsNullOrEmpty(config.TVH_ServerName))
             {
@@ -172,114 +179,13 @@ namespace TVHeadEnd
             string authInfo = _userName + ":" + _password;
             authInfo = Convert.ToBase64String(Encoding.Default.GetBytes(authInfo));
             _headers["Authorization"] = "Basic " + authInfo;
-        }
-
-        public async Task<ImageStream> GetChannelImage(string channelId, CancellationToken cancellationToken)
-        {
-            try
-            {
-                _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: channelId: {id}", channelId);
-
-                String channelIcon = _channelDataHelper.GetChannelIcon4ChannelId(channelId);
-
-                _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: channelIcon: {ico}", channelIcon);
-
-                using var request = new HttpRequestMessage();
-                request.Method = HttpMethod.Get;
-
-                if (channelIcon.StartsWith("http"))
-                {
-                    request.RequestUri = new Uri(channelIcon);
-                    _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: WebRequest: {ico}", channelIcon);
-                }
-                else
-                {
-                    string requestStr = "http://" + _tvhServerName + ":" + _httpPort + _webRoot + "/" + channelIcon;
-                    request.RequestUri = new Uri(requestStr);
-                    request.Headers.Authorization = AuthenticationHeaderValue.Parse(_headers[HeaderNames.Authorization]);
-
-                    _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: WebRequest: {req}", requestStr);
-                }
-
-                var responseMessage = await _httpClientFactory.CreateClient(NamedClient.Default)
-                    .SendAsync(request, cancellationToken)
-                    .ConfigureAwait(false);
-                responseMessage.EnsureSuccessStatusCode();
-                var stream = await responseMessage.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-
-                ImageStream imageStream;
-
-                int lastDot = channelIcon.LastIndexOf('.');
-                if (lastDot > -1)
-                {
-                    String suffix = channelIcon.Substring(lastDot + 1);
-                    suffix = suffix.ToLower();
-
-                    _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: image suffix: {sfx}", suffix);
-
-                    switch (suffix)
-                    {
-                        case "bmp":
-                            imageStream = new ImageStream(stream);
-                            imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Bmp;
-                            _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: using fixed image type BMP");
-                            break;
-
-                        case "gif":
-                            imageStream = new ImageStream(stream);
-                            imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Gif;
-                            _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: using fixed image type GIF");
-                            break;
-
-                        case "jpg":
-                            imageStream = new ImageStream(stream);
-                            imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Jpg;
-                            _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: using fixed image type JPG");
-                            break;
-
-                        case "png":
-                            imageStream = new ImageStream(stream);
-                            imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Png;
-                            _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: using fixed image type PNG");
-                            break;
-
-                        case "webp":
-                            imageStream = new ImageStream(stream);
-                            imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Webp;
-                            _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: using fixed image type WEBP");
-                            break;
-
-                        default:
-                            _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: unkown image type '{sfx}' - return as PNG", suffix);
-                            //Image image = Image.FromStream(stream);
-                            //imageStream.Stream = ImageToPNGStream(image);
-                            //imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Png;
-                            imageStream = new ImageStream(stream);
-                            imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Png;
-                            break;
-                    }
-                }
-                else
-                {
-                    _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: no image type in suffix of channelImage name '{ico}' found - return as PNG", channelIcon);
-                    //Image image = Image.FromStream(stream);
-                    //imageStream.Stream = ImageToPNGStream(image);
-                    //imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Png;
-                    imageStream = new ImageStream(stream);
-                    imageStream.Format = MediaBrowser.Model.Drawing.ImageFormat.Png;
-                }
-
-                return imageStream;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "[TVHclient] HTSConnectionHandler.GetChannelImage: exception caught");
-                return null;
-            }
+            _configured = true;
         }
 
         public string GetChannelImageUrl(string channelId)
         {
+            init();
+
             _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: channelId: {id}", channelId);
 
             String channelIcon = _channelDataHelper.GetChannelIcon4ChannelId(channelId);
@@ -314,6 +220,8 @@ namespace TVHeadEnd
 
         private void ensureConnection()
         {
+            init();
+
             //_logger.LogDebug("[TVHclient] HTSConnectionHandler.ensureConnection");
             if (_htsConnection == null || _htsConnection.needsRestart())
             {
@@ -377,26 +285,31 @@ namespace TVHeadEnd
 
         public int GetPriority()
         {
+            init();
             return _priority;
         }
 
         public String GetProfile()
         {
+            init();
             return _profile;
         }
 
         public String GetHttpBaseUrl()
         {
+            init();
             return _httpBaseUrl;
         }
 
         public bool GetEnableSubsMaudios()
         {
+            init();
             return _enableSubsMaudios;
         }
 
         public bool GetForceDeinterlace()
         {
+            init();
             return _forceDeinterlace;
         }
 

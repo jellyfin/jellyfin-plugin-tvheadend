@@ -71,7 +71,7 @@ namespace TVHeadEnd.DataHelper
           </dump>
         */
 
-        public Task<List<LiveTvTunerInfo>> buildTunerInfos(CancellationToken cancellationToken)
+/*        public Task<List<LiveTvTunerInfo>> buildTunerInfos(CancellationToken cancellationToken)
         {
             return Task.Factory.StartNew<List<LiveTvTunerInfo>>(() =>
             {
@@ -142,6 +142,6 @@ namespace TVHeadEnd.DataHelper
                 }
                 return result;
             });
-        }
+        }*/
     }
 }
