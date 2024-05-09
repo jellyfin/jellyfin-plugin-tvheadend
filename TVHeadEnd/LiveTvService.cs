@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -26,7 +27,7 @@ namespace TVHeadEnd
     public class LiveTvService : ILiveTvService
     {
         public event EventHandler DataSourceChanged;
-        public event EventHandler<RecordingStatusChangedEventArgs> RecordingStatusChanged;
+        //public event EventHandler<RecordingStatusChangedEventArgs> RecordingStatusChanged;
 
         //Added for stream probing
         private readonly IMediaEncoder _mediaEncoder;
@@ -45,6 +46,15 @@ namespace TVHeadEnd
             _logger = loggerFactory.CreateLogger<LiveTvService>();
             _logger.LogDebug("[TVHclient] LiveTvService()");
 
+            if (httpClientFactory == null)
+            {
+                _logger.LogDebug("[TVHclient] httpClientFactory = null");
+            }
+
+            if (_htsConnectionHandler == null)
+            {
+                _htsConnectionHandler = new HTSConnectionHandler(loggerFactory, httpClientFactory);
+            }
             _htsConnectionHandler = HTSConnectionHandler.GetInstance(loggerFactory, httpClientFactory);
             _htsConnectionHandler.setLiveTvService(this);
 
@@ -84,7 +94,7 @@ namespace TVHeadEnd
             }
         }
 
-        public void sendRecordingStatusChanged(RecordingStatusChangedEventArgs recordingStatusChangedEventArgs)
+        /*public void sendRecordingStatusChanged(RecordingStatusChangedEventArgs recordingStatusChangedEventArgs)
         {
             try
             {
@@ -102,7 +112,7 @@ namespace TVHeadEnd
             {
                 _logger.LogError(ex, "[TVHclient] LiveTvService.sendRecordingStatusChanged: exception caught");
             }
-        }
+        }*/
 
         public async Task CancelSeriesTimerAsync(string timerId, CancellationToken cancellationToken)
         {
@@ -497,7 +507,7 @@ namespace TVHeadEnd
             });
         }
 
-        public Task<ImageStream> GetProgramImageAsync(string programId, string channelId, CancellationToken cancellationToken)
+        public Task<Stream> GetProgramImageAsync(string programId, string channelId, CancellationToken cancellationToken)
         {
             // Leave as is. This is handled by supplying image url to ProgramInfo
             throw new NotImplementedException();
@@ -535,7 +545,7 @@ namespace TVHeadEnd
             return twtRes.Result;
         }
 
-        public Task<ImageStream> GetRecordingImageAsync(string recordingId, CancellationToken cancellationToken)
+        public Task<Stream> GetRecordingImageAsync(string recordingId, CancellationToken cancellationToken)
         {
             // Leave as is. This is handled by supplying image url to RecordingInfo
             throw new NotImplementedException();
@@ -661,7 +671,7 @@ namespace TVHeadEnd
             return twtRes.Result;
         }
 
-        public async Task<LiveTvServiceStatusInfo> GetStatusInfoAsync(CancellationToken cancellationToken)
+/*        public async Task<LiveTvServiceStatusInfo> GetStatusInfoAsync(CancellationToken cancellationToken)
         {
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
@@ -703,7 +713,7 @@ namespace TVHeadEnd
                 Tuners = tvTunerInfos,
                 Status = LiveTvServiceStatus.Ok,
             };
-        }
+        }*/
 
         public async Task<IEnumerable<TimerInfo>> GetTimersAsync(CancellationToken cancellationToken)
         {
