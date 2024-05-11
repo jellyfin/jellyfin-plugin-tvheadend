@@ -1,7 +1,7 @@
 name: "TVHeadend"
 guid: "3fd018e5-5e78-4e58-b280-a0c068febee0"
 imageUrl: "https://repo.jellyfin.org/releases/plugin/images/jellyfin-plugin-tvheadend.png"
-version: 12
+version: 11
 targetAbi: "10.9.0.0"
 framework: "net8.0"
 owner: "jellyfin"
