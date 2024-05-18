@@ -19,7 +19,7 @@ using TVHeadEnd.HTSP;
 
 namespace TVHeadEnd
 {
-    class HTSConnectionHandler : HTSConnectionListener
+    public class HTSConnectionHandler : HTSConnectionListener
     {
         private static volatile HTSConnectionHandler _instance;
         private static object _syncRoot = new Object();

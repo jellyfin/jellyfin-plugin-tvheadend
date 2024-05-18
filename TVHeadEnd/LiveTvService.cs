@@ -40,22 +40,13 @@ namespace TVHeadEnd
         private readonly ILogger<LiveTvService> _logger;
         public DateTime LastRecordingChange = DateTime.MinValue;
 
-        public LiveTvService(ILoggerFactory loggerFactory, IMediaEncoder mediaEncoder, IHttpClientFactory httpClientFactory)
+        public LiveTvService(ILoggerFactory loggerFactory, IMediaEncoder mediaEncoder, IHttpClientFactory httpClientFactory, HTSConnectionHandler connectionHandler)
         {
             //System.Diagnostics.StackTrace t = new System.Diagnostics.StackTrace();
             _logger = loggerFactory.CreateLogger<LiveTvService>();
             _logger.LogDebug("[TVHclient] LiveTvService()");
 
-            if (httpClientFactory == null)
-            {
-                _logger.LogDebug("[TVHclient] httpClientFactory = null");
-            }
-
-            if (_htsConnectionHandler == null)
-            {
-                _htsConnectionHandler = new HTSConnectionHandler(loggerFactory, httpClientFactory);
-            }
-            _htsConnectionHandler = HTSConnectionHandler.GetInstance(loggerFactory, httpClientFactory);
+            _htsConnectionHandler = connectionHandler;
             _htsConnectionHandler.setLiveTvService(this);
 
             {
