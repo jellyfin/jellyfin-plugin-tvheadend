@@ -18,7 +18,7 @@ using MediaBrowser.Model.LiveTv;
 
 namespace TVHeadEnd
 {
-    public class RecordingsChannel : IChannel, IHasCacheKey, ISupportsDelete, ISupportsLatestMedia, ISupportsMediaProbe, IHasFolderAttributes
+    public class RecordingsChannel : IChannel, IHasFolderAttributes
     {
         public ILiveTvManager _liveTvManager;
 
@@ -69,7 +69,7 @@ namespace TVHeadEnd
             get { return ChannelParentalRating.GeneralAudience; }
         }
 
-        public string GetCacheKey(string userId)
+        /*public string GetCacheKey(string userId)
         {
             var now = DateTime.UtcNow;
 
@@ -86,7 +86,7 @@ namespace TVHeadEnd
             values.Add(GetService().LastRecordingChange.Ticks.ToString(CultureInfo.InvariantCulture));
 
             return string.Join("-", values.ToArray());
-        }
+        }*/
 
         public InternalChannelFeatures GetChannelFeatures()
         {
@@ -143,15 +143,15 @@ namespace TVHeadEnd
             return _liveTvManager.Services.OfType<LiveTvService>().First();
         }
 
-        public bool CanDelete(BaseItem item)
+        /*public bool CanDelete(BaseItem item)
         {
             return !item.IsFolder;
-        }
+        }*/
 
-        public Task DeleteItem(string id, CancellationToken cancellationToken)
+        /*public Task DeleteItem(string id, CancellationToken cancellationToken)
         {
             return GetService().DeleteRecordingAsync(id, cancellationToken);
-        }
+        }*/
 
         public async Task<IEnumerable<ChannelItemInfo>> GetLatestMedia(ChannelLatestMediaSearch request, CancellationToken cancellationToken)
         {
