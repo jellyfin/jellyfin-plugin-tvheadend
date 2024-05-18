@@ -544,30 +544,6 @@ namespace TVHeadEnd
             throw new NotImplementedException();
         }
 
-        public async Task<IEnumerable<MyRecordingInfo>> GetAllRecordingsAsync(CancellationToken cancellationToken)
-        {
-            // retrieve all 'Pending', 'Inprogress' and 'Completed' recordings
-            // we don't deliver the 'Pending' recordings
-
-            int timeOut = await WaitForInitialLoadTask(cancellationToken);
-            if (timeOut == -1 || cancellationToken.IsCancellationRequested)
-            {
-                _logger.LogDebug("[TVHclient] LiveTvService.GetRecordingsAsync: call cancelled or timed out - returning empty list");
-                return new List<MyRecordingInfo>();
-            }
-
-            TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>> twtr = new TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>>(TIMEOUT);
-            TaskWithTimeoutResult<IEnumerable<MyRecordingInfo>> twtRes = await
-                twtr.RunWithTimeout(_htsConnectionHandler.BuildDvrInfos(cancellationToken));
-
-            if (twtRes.HasTimeout)
-            {
-                return new List<MyRecordingInfo>();
-            }
-
-            return twtRes.Result;
-        }
-
         private void LogStringList(List<String> theList, String prefix)
         {
             // TODO: Really? doublecheck that this is the way to do it, or if a single call to the logger with everything would be better.

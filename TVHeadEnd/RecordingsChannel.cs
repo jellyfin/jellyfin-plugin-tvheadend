@@ -15,16 +15,25 @@ using MediaBrowser.Model.Dto;
 using System.Globalization;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Model.LiveTv;
+using Microsoft.Extensions.Logging;
+using TVHeadEnd.HTSP;
+using TVHeadEnd.HTSP_Responses;
+using TVHeadEnd.TimeoutHelper;
 
 namespace TVHeadEnd
 {
-    public class RecordingsChannel : IChannel, IHasFolderAttributes
+    public class RecordingsChannel : IChannel, IHasCacheKey, ISupportsDelete, ISupportsLatestMedia, ISupportsMediaProbe, IHasFolderAttributes
     {
-        public ILiveTvManager _liveTvManager;
+        private HTSConnectionHandler _htsConnectionHandler;
+        private readonly TimeSpan TIMEOUT = TimeSpan.FromMinutes(5);
 
-        public RecordingsChannel(ILiveTvManager liveTvManager)
+        private readonly ILogger<LiveTvService> _logger;
+
+        public RecordingsChannel(ILoggerFactory loggerFactory, HTSConnectionHandler htsConnectionHandler)
         {
-            _liveTvManager = liveTvManager;
+            _htsConnectionHandler = htsConnectionHandler;
+            _logger = loggerFactory.CreateLogger<LiveTvService>();
+            _logger.LogDebug("[TVHclient] RecordingsChannel()");
         }
 
         public string Name
@@ -69,7 +78,7 @@ namespace TVHeadEnd
             get { return ChannelParentalRating.GeneralAudience; }
         }
 
-        /*public string GetCacheKey(string userId)
+        public string GetCacheKey(string userId)
         {
             var now = DateTime.UtcNow;
 
@@ -86,7 +95,7 @@ namespace TVHeadEnd
             values.Add(GetService().LastRecordingChange.Ticks.ToString(CultureInfo.InvariantCulture));
 
             return string.Join("-", values.ToArray());
-        }*/
+        }
 
         public InternalChannelFeatures GetChannelFeatures()
         {
@@ -140,18 +149,47 @@ namespace TVHeadEnd
 
         private LiveTvService GetService()
         {
-            return _liveTvManager.Services.OfType<LiveTvService>().First();
+            return _htsConnectionHandler.getLiveTvService();
         }
 
-        /*public bool CanDelete(BaseItem item)
+        private Task<int> WaitForInitialLoadTask(CancellationToken cancellationToken)
+        {
+            return Task.Factory.StartNew<int>(() => _htsConnectionHandler.WaitForInitialLoad(cancellationToken));
+        }
+        public async Task<IEnumerable<MyRecordingInfo>> GetAllRecordingsAsync(CancellationToken cancellationToken)
+        {
+            // retrieve all 'Pending', 'Inprogress' and 'Completed' recordings
+            // we don't deliver the 'Pending' recordings
+
+            int timeOut = await WaitForInitialLoadTask(cancellationToken);
+            if (timeOut == -1 || cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogDebug("[TVHclient] GetAllRecordingsAsync - Not initialized ");
+                return new List<MyRecordingInfo>();
+            }
+
+            TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>> twtr = new TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>>(TIMEOUT);
+            TaskWithTimeoutResult<IEnumerable<MyRecordingInfo>> twtRes = await
+                twtr.RunWithTimeout(_htsConnectionHandler.BuildDvrInfos(cancellationToken));
+
+            if (twtRes.HasTimeout)
+            {
+                _logger.LogDebug("[TVHclient] GetAllRecordingsAsync - Timeout");
+                return new List<MyRecordingInfo>();
+            }
+
+            return twtRes.Result;
+        }
+
+        public bool CanDelete(BaseItem item)
         {
             return !item.IsFolder;
-        }*/
+        }
 
-        /*public Task DeleteItem(string id, CancellationToken cancellationToken)
+        public Task DeleteItem(string id, CancellationToken cancellationToken)
         {
             return GetService().DeleteRecordingAsync(id, cancellationToken);
-        }*/
+        }
 
         public async Task<IEnumerable<ChannelItemInfo>> GetLatestMedia(ChannelLatestMediaSearch request, CancellationToken cancellationToken)
         {
@@ -208,8 +246,7 @@ namespace TVHeadEnd
 
         public async Task<ChannelItemResult> GetChannelItems(InternalChannelItemQuery query, Func<MyRecordingInfo, bool> filter, CancellationToken cancellationToken)
         {
-            var service = GetService();
-            var allRecordings = await service.GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false);
+            var allRecordings = await GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false);
 
             var result = new ChannelItemResult
             {
@@ -286,9 +323,7 @@ namespace TVHeadEnd
 
         private async Task<ChannelItemResult> GetRecordingGroups(InternalChannelItemQuery query, CancellationToken cancellationToken)
         {
-            var service = GetService();
-
-            var allRecordings = await service.GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false);
+            var allRecordings = await GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false);
             var result = new ChannelItemResult();
             var items = new List<ChannelItemInfo>();
 
