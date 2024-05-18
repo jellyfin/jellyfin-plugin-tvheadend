@@ -438,6 +438,7 @@ namespace TVHeadEnd
                 livetvasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Path;
                 livetvasset.Protocol = MediaProtocol.Http;
                 livetvasset.RequiredHttpHeaders = _htsConnectionHandler.GetHeaders();
+                livetvasset.AnalyzeDurationMs = 3000;
 
                 // Probe the asset stream to determine available sub-streams
                 string livetvasset_probeUrl = "" + livetvasset.Path;
@@ -465,6 +466,7 @@ namespace TVHeadEnd
                     Id = channelId,
                     Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Url,
                     Protocol = MediaProtocol.Http,
+                    AnalyzeDurationMs = 3000,
                     MediaStreams = new List<MediaStream>
                     {
                         new MediaStream
