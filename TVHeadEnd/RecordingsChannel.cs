@@ -154,7 +154,7 @@ namespace TVHeadEnd
 
         private Task<int> WaitForInitialLoadTask(CancellationToken cancellationToken)
         {
-            return Task.Factory.StartNew<int>(() => _htsConnectionHandler.WaitForInitialLoad(cancellationToken));
+            return Task.Factory.StartNew<int>(() => _htsConnectionHandler.WaitForInitialLoad(cancellationToken), cancellationToken);
         }
         public async Task<IEnumerable<MyRecordingInfo>> GetAllRecordingsAsync(CancellationToken cancellationToken)
         {
@@ -165,7 +165,7 @@ namespace TVHeadEnd
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
                 _logger.LogDebug("[TVHclient] GetAllRecordingsAsync - Not initialized ");
-                return new List<MyRecordingInfo>();
+                return [];
             }
 
             TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>> twtr = new TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>>(TIMEOUT);
@@ -175,7 +175,7 @@ namespace TVHeadEnd
             if (twtRes.HasTimeout)
             {
                 _logger.LogDebug("[TVHclient] GetAllRecordingsAsync - Timeout");
-                return new List<MyRecordingInfo>();
+                return [];
             }
 
             return twtRes.Result;
