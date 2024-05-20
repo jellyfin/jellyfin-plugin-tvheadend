@@ -263,7 +263,7 @@ namespace TVHeadEnd
             var channelItem = new ChannelItemInfo
             {
                 Name = string.IsNullOrEmpty(item.EpisodeTitle) ? item.Name : item.EpisodeTitle,
-                SeriesName = !string.IsNullOrEmpty(item.EpisodeTitle) || item.IsSeries ? item.Name : null,
+                SeriesName = !string.IsNullOrEmpty(item.EpisodeTitle) ? item.Name : null,
                 OfficialRating = item.OfficialRating,
                 CommunityRating = item.CommunityRating,
                 ContentType = item.IsMovie ? ChannelMediaContentType.Movie : (item.IsSeries ? ChannelMediaContentType.Episode : ChannelMediaContentType.Clip),
