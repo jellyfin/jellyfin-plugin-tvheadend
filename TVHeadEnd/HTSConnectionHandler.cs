@@ -19,7 +19,7 @@ using TVHeadEnd.HTSP;
 
 namespace TVHeadEnd
 {
-    class HTSConnectionHandler : HTSConnectionListener
+    public class HTSConnectionHandler : HTSConnectionListener
     {
         private static volatile HTSConnectionHandler _instance;
         private static object _syncRoot = new Object();
@@ -62,6 +62,7 @@ namespace TVHeadEnd
             _loggerFactory = loggerFactory;
             _logger = loggerFactory.CreateLogger<HTSConnectionHandler>();
             _httpClientFactory = httpClientFactory;
+            _liveTvService = null;
 
             //System.Diagnostics.StackTrace t = new System.Diagnostics.StackTrace();
             _logger.LogDebug("[TVHclient] HTSConnectionHandler");
@@ -91,6 +92,11 @@ namespace TVHeadEnd
         public void setLiveTvService(LiveTvService liveTvService)
         {
             _liveTvService = liveTvService;
+        }
+
+        public LiveTvService getLiveTvService()
+        {
+            return _liveTvService;
         }
 
         public int WaitForInitialLoad(CancellationToken cancellationToken)
