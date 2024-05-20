@@ -283,7 +283,10 @@ namespace TVHeadEnd
                     }
                 },
                 //ParentIndexNumber = item.ParentIndexNumber,
-                PremiereDate = item.OriginalAirDate,
+                PremiereDate = item.StartDate,
+                DateCreated = item.StartDate,
+                StartDate = item.StartDate,
+                EndDate = item.EndDate,
                 //ProductionYear = item.ProductionYear,
                 //Studios = item.Studios,
                 Type = ChannelItemType.Media,
