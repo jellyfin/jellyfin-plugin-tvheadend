@@ -1,8 +1,8 @@
 name: "TVHeadend"
 guid: "3fd018e5-5e78-4e58-b280-a0c068febee0"
 imageUrl: "https://repo.jellyfin.org/releases/plugin/images/jellyfin-plugin-tvheadend.png"
-version: 11
-targetAbi: "10.9.0.0"
+version: 12
+targetAbi: "10.9.2.0"
 framework: "net8.0"
 owner: "jellyfin"
 overview: "Manage TVHeadend from Jellyfin"
@@ -10,16 +10,8 @@ description: "Manage TVHeadend from Jellyfin"
 category: "LiveTV"
 artifacts:
   - "TVHeadEnd.dll"
-changelog: |2-
-  ### New features and improvements ###
-  - Added Pre-Padding and Post-Padding to settings.  (#57) @lomion0815
-
-  ### Bug Fixes ###
-  - Fix DLNA streaming (#46) @jkellerer
-
-  ### Code or Repo Maintenance ###
-  - Use meta ci (#55) @crobibero
-
-  ### CI & build changes ###
-  - fix: meta ci workflows (#56) @h1dden-da3m0n
-  - Use meta ci (#55) @crobibero
+changelog: |-
+  - Fixed TV Recording channel for 10.9  (#81) @lomion0815
+  - Fix live stream not working with 10.9 (#80) @lomion0815
+  - Update for 10.9 - Step 1 (#78) @lomion0815
+  - Stop Async connection handler threads if remote host has closed the connection. (#74) @Charlese2
