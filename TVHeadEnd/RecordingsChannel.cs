@@ -22,7 +22,7 @@ using TVHeadEnd.TimeoutHelper;
 
 namespace TVHeadEnd
 {
-    public class RecordingsChannel : IChannel, IHasCacheKey, ISupportsDelete, ISupportsLatestMedia, ISupportsMediaProbe, IHasFolderAttributes
+    public class RecordingsChannel : IChannel, IHasCacheKey, ISupportsDelete, ISupportsLatestMedia, IHasFolderAttributes
     {
         private HTSConnectionHandler _htsConnectionHandler;
         private readonly TimeSpan TIMEOUT = TimeSpan.FromMinutes(5);
@@ -246,6 +246,8 @@ namespace TVHeadEnd
 
         public async Task<ChannelItemResult> GetChannelItems(InternalChannelItemQuery query, Func<MyRecordingInfo, bool> filter, CancellationToken cancellationToken)
         {
+            _logger.LogDebug("[TVHclient] GetChannelItems - Updating TVHeadend Recording Items");
+
             var allRecordings = await GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false);
 
             var result = new ChannelItemResult
@@ -260,6 +262,8 @@ namespace TVHeadEnd
         {
             var path = buildRecordingPath(item.Id);
 
+            _logger.LogDebug("[TVHclient] ConvertToChannelItem - Creating ChannelItemInfo");
+
             var channelItem = new ChannelItemInfo
             {
                 Name = string.IsNullOrEmpty(item.EpisodeTitle) ? item.Name : item.EpisodeTitle,
@@ -273,13 +277,35 @@ namespace TVHeadEnd
                 Id = item.Id,
                 //IndexNumber = item.IndexNumber,
                 MediaType = item.ChannelType == MediaBrowser.Model.LiveTv.ChannelType.TV ? ChannelMediaType.Video : ChannelMediaType.Audio,
+                IsLiveStream = item.Status == MediaBrowser.Model.LiveTv.RecordingStatus.InProgress,
                 MediaSources = new List<MediaSourceInfo>
                 {
                     new MediaSourceInfo
                     {
                         Path = path,
                         Protocol = path.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? MediaProtocol.Http : MediaProtocol.File,
-                        Id = item.Id
+                        Id = item.Id,
+                        Container = "mpegts",
+                        AnalyzeDurationMs = 2000,
+                        SupportsDirectStream = false,
+                        MediaStreams = new List<MediaStream>
+                        {
+                            new MediaStream
+                            {
+                                Type = MediaStreamType.Video,
+                                // Set the index to -1 because we don't know the exact index of the video stream within the container
+                                Index = -1,
+                                // Set to true if unknown to enable deinterlacing
+                                IsInterlaced = true
+                            },
+                            new MediaStream
+                            {
+                                Type = MediaStreamType.Audio,
+                                // Set the index to -1 because we don't know the exact index of the audio stream within the container
+                                Index = -1
+                            }
+                        },
+                        SupportsProbing = item.Status != MediaBrowser.Model.LiveTv.RecordingStatus.InProgress
                     }
                 },
                 //ParentIndexNumber = item.ParentIndexNumber,
@@ -293,7 +319,6 @@ namespace TVHeadEnd
                 DateModified = item.DateLastUpdated,
                 Overview = item.Overview,
                 //People = item.People
-                IsLiveStream = item.Status == MediaBrowser.Model.LiveTv.RecordingStatus.InProgress,
                 Etag = item.Status.ToString()
             };
 
@@ -326,6 +351,8 @@ namespace TVHeadEnd
 
         private async Task<ChannelItemResult> GetRecordingGroups(InternalChannelItemQuery query, CancellationToken cancellationToken)
         {
+            _logger.LogDebug("[TVHclient] GetRecordingGroups - Updateing TVHeadend Recording Items");
+
             var allRecordings = await GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false);
             var result = new ChannelItemResult();
             var items = new List<ChannelItemInfo>();
