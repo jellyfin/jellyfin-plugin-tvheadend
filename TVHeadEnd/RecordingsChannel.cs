@@ -273,11 +273,9 @@ namespace TVHeadEnd
                 ContentType = item.IsMovie ? ChannelMediaContentType.Movie : (item.IsSeries ? ChannelMediaContentType.Episode : ChannelMediaContentType.Clip),
                 Genres = item.Genres,
                 ImageUrl = item.ImageUrl,
-                //HomePageUrl = item.HomePageUrl
                 Id = item.Id,
-                //IndexNumber = item.IndexNumber,
                 MediaType = item.ChannelType == MediaBrowser.Model.LiveTv.ChannelType.TV ? ChannelMediaType.Video : ChannelMediaType.Audio,
-                IsLiveStream = false, //item.Status == MediaBrowser.Model.LiveTv.RecordingStatus.InProgress,
+                IsLiveStream = false,
                 MediaSources = new List<MediaSourceInfo>
                 {
                     new MediaSourceInfo
