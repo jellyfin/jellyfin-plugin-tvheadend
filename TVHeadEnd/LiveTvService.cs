@@ -451,6 +451,7 @@ namespace TVHeadEnd
                         {
                             i.IsInterlaced = true;
                         }
+                        i.RealFrameRate = 50.0F;
                     }
                 }
 
@@ -475,7 +476,8 @@ namespace TVHeadEnd
                             // Set the index to -1 because we don't know the exact index of the video stream within the container
                             Index = -1,
                             // Set to true if unknown to enable deinterlacing
-                            IsInterlaced = true
+                            IsInterlaced = true,
+                            RealFrameRate = 50.0F
                         },
                         new MediaStream
                         {
@@ -622,7 +624,8 @@ namespace TVHeadEnd
                             // Set the index to -1 because we don't know the exact index of the video stream within the container
                             Index = -1,
                             // Set to true if unknown to enable deinterlacing
-                            IsInterlaced = true
+                            IsInterlaced = true,
+                            RealFrameRate = 50.0F
                         },
                         new MediaStream
                         {
