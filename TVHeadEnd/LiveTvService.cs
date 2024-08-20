@@ -429,7 +429,13 @@ namespace TVHeadEnd
                 livetvasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Path;
                 livetvasset.Protocol = MediaProtocol.Http;
                 livetvasset.RequiredHttpHeaders = _htsConnectionHandler.GetHeaders();
-                livetvasset.AnalyzeDurationMs = 3000;
+                livetvasset.AnalyzeDurationMs = 2000;
+                livetvasset.SupportsDirectStream = false;
+                livetvasset.RequiresClosing = true;
+                livetvasset.SupportsProbing = false;
+                livetvasset.Container = "mpegts";
+                livetvasset.RequiresOpening = true;
+                livetvasset.IsInfiniteStream  = true;
 
                 // Probe the asset stream to determine available sub-streams
                 string livetvasset_probeUrl = "" + livetvasset.Path;
@@ -445,6 +451,7 @@ namespace TVHeadEnd
                         {
                             i.IsInterlaced = true;
                         }
+                        i.RealFrameRate = 50.0F;
                     }
                 }
 
@@ -457,7 +464,10 @@ namespace TVHeadEnd
                     Id = channelId,
                     Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Url,
                     Protocol = MediaProtocol.Http,
-                    AnalyzeDurationMs = 3000,
+                    AnalyzeDurationMs = 2000,
+                    SupportsDirectStream = false,
+                    SupportsProbing = false,
+                    Container = "mpegts",
                     MediaStreams = new List<MediaStream>
                     {
                         new MediaStream
@@ -466,7 +476,8 @@ namespace TVHeadEnd
                             // Set the index to -1 because we don't know the exact index of the video stream within the container
                             Index = -1,
                             // Set to true if unknown to enable deinterlacing
-                            IsInterlaced = true
+                            IsInterlaced = true,
+                            RealFrameRate = 50.0F
                         },
                         new MediaStream
                         {
@@ -569,6 +580,15 @@ namespace TVHeadEnd
                 // Set asset source and type for stream probing and logging
                 string recordingasset_probeUrl = "" + recordingasset.Path;
 
+                recordingasset.AnalyzeDurationMs = 2000;
+                recordingasset.SupportsDirectStream = false;
+                recordingasset.RequiresClosing = true;
+                recordingasset.SupportsProbing = false;
+                recordingasset.Container = "mpegts";
+                recordingasset.RequiresOpening = true;
+                recordingasset.IsInfiniteStream  = true;
+
+
                 // If enabled, force video deinterlacing for recordings
                 if (_htsConnectionHandler.GetForceDeinterlace())
                 {
@@ -592,6 +612,10 @@ namespace TVHeadEnd
                     Id = recordingId,
                     Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Url,
                     Protocol = MediaProtocol.Http,
+                    AnalyzeDurationMs = 2000,
+                    SupportsDirectStream = false,
+                    SupportsProbing = false,
+                    Container = "mpegts",
                     MediaStreams = new List<MediaStream>
                     {
                         new MediaStream
@@ -600,7 +624,8 @@ namespace TVHeadEnd
                             // Set the index to -1 because we don't know the exact index of the video stream within the container
                             Index = -1,
                             // Set to true if unknown to enable deinterlacing
-                            IsInterlaced = true
+                            IsInterlaced = true,
+                            RealFrameRate = 50.0F
                         },
                         new MediaStream
                         {
