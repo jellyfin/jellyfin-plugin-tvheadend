@@ -1,8 +1,8 @@
 name: "TVHeadend"
 guid: "3fd018e5-5e78-4e58-b280-a0c068febee0"
 imageUrl: "https://repo.jellyfin.org/releases/plugin/images/jellyfin-plugin-tvheadend.png"
-version: 13
-targetAbi: "10.9.9.0"
+version: 12
+targetAbi: "10.9.2.0"
 framework: "net8.0"
 owner: "jellyfin"
 overview: "Manage TVHeadend from Jellyfin"
@@ -11,8 +11,7 @@ category: "LiveTV"
 artifacts:
   - "TVHeadEnd.dll"
 changelog: |-
-  - Further Release 10.9.x improvements (#92) @lomion0815
-  - Readme: update build requirements (#93) @citronalco
-  - Fixed link to TVHeadend image (#83) @lomion0815
-  - Set correct dates for recordings (#84) @lomion0815
-  - Changed HTSP field "summary" to correct name "subtitle". (#85) @lomion0815
+  - Fixed TV Recording channel for 10.9  (#81) @lomion0815
+  - Fix live stream not working with 10.9 (#80) @lomion0815
+  - Update for 10.9 - Step 1 (#78) @lomion0815
+  - Stop Async connection handler threads if remote host has closed the connection. (#74) @Charlese2
