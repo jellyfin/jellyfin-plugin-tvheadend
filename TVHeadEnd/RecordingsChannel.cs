@@ -92,7 +92,7 @@ namespace TVHeadEnd
 
             values.Add(Math.Floor(minute).ToString(CultureInfo.InvariantCulture));
 
-            values.Add(GetService().LastRecordingChange.Ticks.ToString(CultureInfo.InvariantCulture));
+            values.Add(GetService()._lastRecordingChange.Ticks.ToString(CultureInfo.InvariantCulture));
 
             return string.Join("-", values.ToArray());
         }
