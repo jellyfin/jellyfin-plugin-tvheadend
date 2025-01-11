@@ -15,16 +15,25 @@ using MediaBrowser.Model.Dto;
 using System.Globalization;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Model.LiveTv;
+using Microsoft.Extensions.Logging;
+using TVHeadEnd.HTSP;
+using TVHeadEnd.HTSP_Responses;
+using TVHeadEnd.TimeoutHelper;
 
 namespace TVHeadEnd
 {
-    public class RecordingsChannel : IChannel, IHasCacheKey, ISupportsDelete, ISupportsLatestMedia, ISupportsMediaProbe, IHasFolderAttributes
+    public class RecordingsChannel : IChannel, ISupportsDelete, ISupportsLatestMedia, IHasFolderAttributes
     {
-        public ILiveTvManager _liveTvManager;
+        private HTSConnectionHandler _htsConnectionHandler;
+        private readonly TimeSpan TIMEOUT = TimeSpan.FromMinutes(5);
 
-        public RecordingsChannel(ILiveTvManager liveTvManager)
+        private readonly ILogger<LiveTvService> _logger;
+
+        public RecordingsChannel(ILoggerFactory loggerFactory, HTSConnectionHandler htsConnectionHandler)
         {
-            _liveTvManager = liveTvManager;
+            _htsConnectionHandler = htsConnectionHandler;
+            _logger = loggerFactory.CreateLogger<LiveTvService>();
+            _logger.LogDebug("[TVHclient] RecordingsChannel()");
         }
 
         public string Name
@@ -113,7 +122,7 @@ namespace TVHeadEnd
             {
                 return Task.FromResult(new DynamicImageResponse
                 {
-                    Path = "https://github.com/MediaBrowser/Tvheadend/raw/master/TVHeadEnd/Images/TVHeadEnd.png?raw=true",
+                    Path = "https://raw.githubusercontent.com/jellyfin/jellyfin-ux/master/plugins/repository/jellyfin-plugin-tvheadend.png",
                     Protocol = MediaProtocol.Http,
                     HasImage = true
                 });
@@ -140,7 +149,36 @@ namespace TVHeadEnd
 
         private LiveTvService GetService()
         {
-            return _liveTvManager.Services.OfType<LiveTvService>().First();
+            return _htsConnectionHandler.getLiveTvService();
+        }
+
+        private Task<int> WaitForInitialLoadTask(CancellationToken cancellationToken)
+        {
+            return Task.Factory.StartNew<int>(() => _htsConnectionHandler.WaitForInitialLoad(cancellationToken), cancellationToken);
+        }
+        public async Task<IEnumerable<MyRecordingInfo>> GetAllRecordingsAsync(CancellationToken cancellationToken)
+        {
+            // retrieve all 'Pending', 'Inprogress' and 'Completed' recordings
+            // we don't deliver the 'Pending' recordings
+
+            int timeOut = await WaitForInitialLoadTask(cancellationToken);
+            if (timeOut == -1 || cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogDebug("[TVHclient] GetAllRecordingsAsync - Not initialized ");
+                return [];
+            }
+
+            TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>> twtr = new TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>>(TIMEOUT);
+            TaskWithTimeoutResult<IEnumerable<MyRecordingInfo>> twtRes = await
+                twtr.RunWithTimeout(_htsConnectionHandler.BuildDvrInfos(cancellationToken));
+
+            if (twtRes.HasTimeout)
+            {
+                _logger.LogDebug("[TVHclient] GetAllRecordingsAsync - Timeout");
+                return [];
+            }
+
+            return twtRes.Result;
         }
 
         public bool CanDelete(BaseItem item)
@@ -208,8 +246,9 @@ namespace TVHeadEnd
 
         public async Task<ChannelItemResult> GetChannelItems(InternalChannelItemQuery query, Func<MyRecordingInfo, bool> filter, CancellationToken cancellationToken)
         {
-            var service = GetService();
-            var allRecordings = await service.GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false);
+            _logger.LogDebug("[TVHclient] GetChannelItems - Updating TVHeadend Recording Items");
+
+            var allRecordings = await GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false);
 
             var result = new ChannelItemResult
             {
@@ -223,37 +262,60 @@ namespace TVHeadEnd
         {
             var path = buildRecordingPath(item.Id);
 
+            _logger.LogDebug("[TVHclient] ConvertToChannelItem - Creating ChannelItemInfo");
+
             var channelItem = new ChannelItemInfo
             {
                 Name = string.IsNullOrEmpty(item.EpisodeTitle) ? item.Name : item.EpisodeTitle,
-                SeriesName = !string.IsNullOrEmpty(item.EpisodeTitle) || item.IsSeries ? item.Name : null,
+                SeriesName = !string.IsNullOrEmpty(item.EpisodeTitle) ? item.Name : null,
                 OfficialRating = item.OfficialRating,
                 CommunityRating = item.CommunityRating,
                 ContentType = item.IsMovie ? ChannelMediaContentType.Movie : (item.IsSeries ? ChannelMediaContentType.Episode : ChannelMediaContentType.Clip),
                 Genres = item.Genres,
                 ImageUrl = item.ImageUrl,
-                //HomePageUrl = item.HomePageUrl
                 Id = item.Id,
-                //IndexNumber = item.IndexNumber,
                 MediaType = item.ChannelType == MediaBrowser.Model.LiveTv.ChannelType.TV ? ChannelMediaType.Video : ChannelMediaType.Audio,
+                IsLiveStream = false,
                 MediaSources = new List<MediaSourceInfo>
                 {
                     new MediaSourceInfo
                     {
                         Path = path,
                         Protocol = path.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? MediaProtocol.Http : MediaProtocol.File,
-                        Id = item.Id
+                        Id = item.Id,
+                        Container = "mpegts",
+                        AnalyzeDurationMs = 2000,
+                        MediaStreams = new List<MediaStream>
+                        {
+                            new MediaStream
+                            {
+                                Type = MediaStreamType.Video,
+                                // Set the index to -1 because we don't know the exact index of the video stream within the container
+                                Index = -1,
+                                // Set to true if unknown to enable deinterlacing
+                                IsInterlaced = true,
+                                RealFrameRate = 50.0F
+                            },
+                            new MediaStream
+                            {
+                                Type = MediaStreamType.Audio,
+                                // Set the index to -1 because we don't know the exact index of the audio stream within the container
+                                Index = -1
+                            }
+                        }
                     }
                 },
                 //ParentIndexNumber = item.ParentIndexNumber,
-                PremiereDate = item.OriginalAirDate,
+                PremiereDate = item.StartDate,
+                DateCreated = item.StartDate,
+                StartDate = item.StartDate,
+                EndDate = item.EndDate,
                 //ProductionYear = item.ProductionYear,
                 //Studios = item.Studios,
                 Type = ChannelItemType.Media,
                 DateModified = item.DateLastUpdated,
                 Overview = item.Overview,
                 //People = item.People
-                IsLiveStream = item.Status == MediaBrowser.Model.LiveTv.RecordingStatus.InProgress,
                 Etag = item.Status.ToString()
             };
 
@@ -286,9 +348,9 @@ namespace TVHeadEnd
 
         private async Task<ChannelItemResult> GetRecordingGroups(InternalChannelItemQuery query, CancellationToken cancellationToken)
         {
-            var service = GetService();
+            _logger.LogDebug("[TVHclient] GetRecordingGroups - Updateing TVHeadend Recording Items");
 
-            var allRecordings = await service.GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false);
+            var allRecordings = await GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false);
             var result = new ChannelItemResult();
             var items = new List<ChannelItemInfo>();
 

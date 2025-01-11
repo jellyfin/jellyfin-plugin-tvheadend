@@ -384,8 +384,13 @@ namespace TVHeadEnd.HTSP
                 }
                 try
                 {
-                    int bytesReveived = _socket.Receive(readBuffer);
-                    _buffer.appendCount(readBuffer, bytesReveived);
+                    int bytesReceived = _socket.Receive(readBuffer);
+                    if (bytesReceived == 0)
+                    {
+                        stop();
+                        return;
+                    }
+                    _buffer.appendCount(readBuffer, bytesReceived);
                 }
                 catch (Exception ex)
                 {

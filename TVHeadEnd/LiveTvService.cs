@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -26,7 +27,7 @@ namespace TVHeadEnd
     public class LiveTvService : ILiveTvService
     {
         public event EventHandler DataSourceChanged;
-        public event EventHandler<RecordingStatusChangedEventArgs> RecordingStatusChanged;
+        //public event EventHandler<RecordingStatusChangedEventArgs> RecordingStatusChanged;
 
         //Added for stream probing
         private readonly IMediaEncoder _mediaEncoder;
@@ -39,13 +40,13 @@ namespace TVHeadEnd
         private readonly ILogger<LiveTvService> _logger;
         public DateTime LastRecordingChange = DateTime.MinValue;
 
-        public LiveTvService(ILoggerFactory loggerFactory, IMediaEncoder mediaEncoder, IHttpClientFactory httpClientFactory)
+        public LiveTvService(ILoggerFactory loggerFactory, IMediaEncoder mediaEncoder, IHttpClientFactory httpClientFactory, HTSConnectionHandler connectionHandler)
         {
             //System.Diagnostics.StackTrace t = new System.Diagnostics.StackTrace();
             _logger = loggerFactory.CreateLogger<LiveTvService>();
             _logger.LogDebug("[TVHclient] LiveTvService()");
 
-            _htsConnectionHandler = HTSConnectionHandler.GetInstance(loggerFactory, httpClientFactory);
+            _htsConnectionHandler = connectionHandler;
             _htsConnectionHandler.setLiveTvService(this);
 
             {
@@ -84,7 +85,7 @@ namespace TVHeadEnd
             }
         }
 
-        public void sendRecordingStatusChanged(RecordingStatusChangedEventArgs recordingStatusChangedEventArgs)
+        /*public void sendRecordingStatusChanged(RecordingStatusChangedEventArgs recordingStatusChangedEventArgs)
         {
             try
             {
@@ -102,7 +103,7 @@ namespace TVHeadEnd
             {
                 _logger.LogError(ex, "[TVHclient] LiveTvService.sendRecordingStatusChanged: exception caught");
             }
-        }
+        }*/
 
         public async Task CancelSeriesTimerAsync(string timerId, CancellationToken cancellationToken)
         {
@@ -428,6 +429,13 @@ namespace TVHeadEnd
                 livetvasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Path;
                 livetvasset.Protocol = MediaProtocol.Http;
                 livetvasset.RequiredHttpHeaders = _htsConnectionHandler.GetHeaders();
+                livetvasset.AnalyzeDurationMs = 2000;
+                livetvasset.SupportsDirectStream = false;
+                livetvasset.RequiresClosing = true;
+                livetvasset.SupportsProbing = false;
+                livetvasset.Container = "mpegts";
+                livetvasset.RequiresOpening = true;
+                livetvasset.IsInfiniteStream  = true;
 
                 // Probe the asset stream to determine available sub-streams
                 string livetvasset_probeUrl = "" + livetvasset.Path;
@@ -445,6 +453,7 @@ namespace TVHeadEnd
                         {
                             i.IsInterlaced = true;
                         }
+                        i.RealFrameRate = 50.0F;
                     }
                 }
 
@@ -457,6 +466,10 @@ namespace TVHeadEnd
                     Id = channelId,
                     Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Url,
                     Protocol = MediaProtocol.Http,
+                    AnalyzeDurationMs = 2000,
+                    SupportsDirectStream = false,
+                    SupportsProbing = false,
+                    Container = "mpegts",
                     MediaStreams = new List<MediaStream>
                     {
                         new MediaStream
@@ -465,7 +478,8 @@ namespace TVHeadEnd
                             // Set the index to -1 because we don't know the exact index of the video stream within the container
                             Index = -1,
                             // Set to true if unknown to enable deinterlacing
-                            IsInterlaced = true
+                            IsInterlaced = true,
+                            RealFrameRate = 50.0F
                         },
                         new MediaStream
                         {
@@ -636,7 +650,7 @@ namespace TVHeadEnd
             });
         }
 
-        public Task<ImageStream> GetProgramImageAsync(string programId, string channelId, CancellationToken cancellationToken)
+        public Task<Stream> GetProgramImageAsync(string programId, string channelId, CancellationToken cancellationToken)
         {
             // Leave as is. This is handled by supplying image url to ProgramInfo
             throw new NotImplementedException();
@@ -674,34 +688,10 @@ namespace TVHeadEnd
             return twtRes.Result;
         }
 
-        public Task<ImageStream> GetRecordingImageAsync(string recordingId, CancellationToken cancellationToken)
+        public Task<Stream> GetRecordingImageAsync(string recordingId, CancellationToken cancellationToken)
         {
             // Leave as is. This is handled by supplying image url to RecordingInfo
             throw new NotImplementedException();
-        }
-
-        public async Task<IEnumerable<MyRecordingInfo>> GetAllRecordingsAsync(CancellationToken cancellationToken)
-        {
-            // retrieve all 'Pending', 'Inprogress' and 'Completed' recordings
-            // we don't deliver the 'Pending' recordings
-
-            int timeOut = await WaitForInitialLoadTask(cancellationToken);
-            if (timeOut == -1 || cancellationToken.IsCancellationRequested)
-            {
-                _logger.LogDebug("[TVHclient] LiveTvService.GetRecordingsAsync: call cancelled or timed out - returning empty list");
-                return new List<MyRecordingInfo>();
-            }
-
-            TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>> twtr = new TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>>(TIMEOUT);
-            TaskWithTimeoutResult<IEnumerable<MyRecordingInfo>> twtRes = await
-                twtr.RunWithTimeout(_htsConnectionHandler.BuildDvrInfos(cancellationToken));
-
-            if (twtRes.HasTimeout)
-            {
-                return new List<MyRecordingInfo>();
-            }
-
-            return twtRes.Result;
         }
 
         private void LogStringList(List<String> theList, String prefix)
@@ -731,6 +721,15 @@ namespace TVHeadEnd
                 string recordingasset_source = "Recording";
                 await ProbeStream(recordingasset, recordingasset_probeUrl, recordingasset_source, cancellationToken);
 
+                recordingasset.AnalyzeDurationMs = 2000;
+                recordingasset.SupportsDirectStream = false;
+                recordingasset.RequiresClosing = true;
+                recordingasset.SupportsProbing = false;
+                recordingasset.Container = "mpegts";
+                recordingasset.RequiresOpening = true;
+                recordingasset.IsInfiniteStream  = true;
+
+
                 // If enabled, force video deinterlacing for recordings
                 if (_htsConnectionHandler.GetForceDeinterlace())
                 {
@@ -754,6 +753,10 @@ namespace TVHeadEnd
                     Id = recordingId,
                     Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Url,
                     Protocol = MediaProtocol.Http,
+                    AnalyzeDurationMs = 2000,
+                    SupportsDirectStream = false,
+                    SupportsProbing = false,
+                    Container = "mpegts",
                     MediaStreams = new List<MediaStream>
                     {
                         new MediaStream
@@ -762,7 +765,8 @@ namespace TVHeadEnd
                             // Set the index to -1 because we don't know the exact index of the video stream within the container
                             Index = -1,
                             // Set to true if unknown to enable deinterlacing
-                            IsInterlaced = true
+                            IsInterlaced = true,
+                            RealFrameRate = 50.0F
                         },
                         new MediaStream
                         {
@@ -802,7 +806,7 @@ namespace TVHeadEnd
             return twtRes.Result;
         }
 
-        public async Task<LiveTvServiceStatusInfo> GetStatusInfoAsync(CancellationToken cancellationToken)
+/*        public async Task<LiveTvServiceStatusInfo> GetStatusInfoAsync(CancellationToken cancellationToken)
         {
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
@@ -844,7 +848,7 @@ namespace TVHeadEnd
                 Tuners = tvTunerInfos,
                 Status = LiveTvServiceStatus.Ok,
             };
-        }
+        }*/
 
         public async Task<IEnumerable<TimerInfo>> GetTimersAsync(CancellationToken cancellationToken)
         {
