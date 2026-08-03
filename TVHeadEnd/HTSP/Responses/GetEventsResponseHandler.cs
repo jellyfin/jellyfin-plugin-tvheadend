@@ -129,10 +129,13 @@ namespace TVHeadEnd.HTSP.Responses
                         pi.Name = currEventMessage.GetString("title");
                     }
 
-                    if (currEventMessage.ContainsField("description"))
-                    {
-                        pi.Overview = currEventMessage.GetString("description");
-                    }
+                    // Up to HTSP v31 the server collapses description/summary/subtitle into
+                    // "description" when the richer field is missing. From v32 on all three are
+                    // sent independently, so "description" can be absent even though the event
+                    // has a summary. Fall back so both layouts produce an overview.
+                    pi.Overview = currEventMessage.GetString("description", null)
+                        ?? currEventMessage.GetString("summary", null)
+                        ?? currEventMessage.GetString("subtitle", null);
 
                     if (currEventMessage.ContainsField("subtitle"))
                     {
