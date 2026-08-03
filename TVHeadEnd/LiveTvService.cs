@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.LiveTv;
@@ -818,23 +817,6 @@ namespace TVHeadEnd
         private Task<int> WaitForInitialLoadTask(CancellationToken cancellationToken)
         {
             return Task.Run(() => _htsConnectionHandler.WaitForInitialLoad(cancellationToken), cancellationToken);
-        }
-
-        private static string Dump(List<DayOfWeek> days)
-        {
-            StringBuilder sb = new StringBuilder();
-            foreach (DayOfWeek dow in days)
-            {
-                sb.Append(dow + ", ");
-            }
-
-            string tmpResult = sb.ToString();
-            if (tmpResult.EndsWith(','))
-            {
-                tmpResult = tmpResult[..^2];
-            }
-
-            return tmpResult;
         }
     }
 }

@@ -1,18 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Common.Net;
-using MediaBrowser.Controller.Drawing;
 using MediaBrowser.Controller.LiveTv;
 using Microsoft.Extensions.Logging;
-using Microsoft.Net.Http.Headers;
 using TVHeadEnd.DataHelper;
 using TVHeadEnd.HTSP;
 
@@ -35,15 +27,10 @@ namespace TVHeadEnd
         /// </summary>
         private const int DvrPriorityNotSet = 5;
 
-        private static readonly object _syncRoot = new object();
-
-        private static volatile HTSConnectionHandler? _instance;
-
         private readonly object _lock = new object();
 
         private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger<HTSConnectionHandler> _logger;
-        private readonly IHttpClientFactory _httpClientFactory;
 
         // Data helpers
         private readonly ChannelDataHelper _channelDataHelper;
@@ -72,11 +59,10 @@ namespace TVHeadEnd
 
         private LiveTvService? _liveTvService;
 
-        public HTSConnectionHandler(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory)
+        public HTSConnectionHandler(ILoggerFactory loggerFactory)
         {
             _loggerFactory = loggerFactory;
             _logger = loggerFactory.CreateLogger<HTSConnectionHandler>();
-            _httpClientFactory = httpClientFactory;
 
             // System.Diagnostics.StackTrace t = new System.Diagnostics.StackTrace();
             _logger.LogDebug("[TVHclient] HTSConnectionHandler");
@@ -87,22 +73,6 @@ namespace TVHeadEnd
 
             // The channel type is applied in Init(), once the configuration has been read.
             // ChannelDataHelper defaults to "Ignore" until then.
-        }
-
-        public static HTSConnectionHandler GetInstance(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory)
-        {
-            if (_instance == null)
-            {
-                lock (_syncRoot)
-                {
-                    if (_instance == null)
-                    {
-                        _instance = new HTSConnectionHandler(loggerFactory, httpClientFactory);
-                    }
-                }
-            }
-
-            return _instance;
         }
 
         public void SetLiveTvService(LiveTvService liveTvService)
@@ -396,24 +366,6 @@ namespace TVHeadEnd
             _htsConnection!.SendMessage(message, responseHandler);
         }
 
-        public string? GetServername()
-        {
-            EnsureConnection();
-            return _htsConnection!.GetServername();
-        }
-
-        public string? GetServerVersion()
-        {
-            EnsureConnection();
-            return _htsConnection!.GetServerversion();
-        }
-
-        public int GetServerProtocolVersion()
-        {
-            EnsureConnection();
-            return _htsConnection!.GetServerProtocolVersion();
-        }
-
         /// <summary>
         /// Gets the HTSP version in effect for the current connection.
         /// </summary>
@@ -422,12 +374,6 @@ namespace TVHeadEnd
         {
             EnsureConnection();
             return _htsConnection!.GetNegotiatedProtocolVersion();
-        }
-
-        public string? GetDiskSpace()
-        {
-            EnsureConnection();
-            return _htsConnection!.GetDiskspace();
         }
 
         public Task<IEnumerable<ChannelInfo>> BuildChannelInfos(CancellationToken cancellationToken)

@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.LiveTv;
 
 namespace TVHeadEnd
@@ -19,12 +17,6 @@ namespace TVHeadEnd
         /// </summary>
         /// <value>The series timer identifier.</value>
         public string? SeriesTimerId { get; set; }
-
-        /// <summary>
-        /// Gets or sets the timer identifier.
-        /// </summary>
-        /// <value>The timer identifier.</value>
-        public string? TimerId { get; set; }
 
         /// <summary>
         /// Gets or sets channelId of the recording.
@@ -189,12 +181,6 @@ namespace TVHeadEnd
         /// </summary>
         /// <value><c>null</c> if [has image] contains no value, <c>true</c> if [has image]; otherwise, <c>false</c>.</value>
         public bool? HasImage { get; set; }
-
-        /// <summary>
-        /// Gets or sets the show identifier.
-        /// </summary>
-        /// <value>The show identifier.</value>
-        public string? ShowId { get; set; }
 
         /// <summary>
         /// Gets or sets the date last updated.

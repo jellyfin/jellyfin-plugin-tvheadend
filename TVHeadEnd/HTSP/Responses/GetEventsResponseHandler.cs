@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.LiveTv;
 using Microsoft.Extensions.Logging;
-using TVHeadEnd.HTSP;
 
 namespace TVHeadEnd.HTSP.Responses
 {

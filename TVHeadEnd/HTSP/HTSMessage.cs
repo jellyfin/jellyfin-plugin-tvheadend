@@ -143,66 +143,6 @@ namespace TVHeadEnd.HTSP
             return obj.ToString();
         }
 
-        public IList<long?> GetLongList(string name)
-        {
-            List<long?> list = new List<long?>();
-
-            if (!ContainsField(name))
-            {
-                return list;
-            }
-
-            foreach (object obj in (IList)_dict[name])
-            {
-                if (obj is System.Numerics.BigInteger)
-                {
-                    list.Add((long)((System.Numerics.BigInteger)obj));
-                }
-            }
-
-            return list;
-        }
-
-        internal IList<long?> GetLongList(string name, IList<long?> std)
-        {
-            if (!ContainsField(name))
-            {
-                return std;
-            }
-
-            return GetLongList(name);
-        }
-
-        public IList<int?> GetIntList(string name)
-        {
-            List<int?> list = new List<int?>();
-
-            if (!ContainsField(name))
-            {
-                return list;
-            }
-
-            foreach (object obj in (IList)_dict[name])
-            {
-                if (obj is System.Numerics.BigInteger)
-                {
-                    list.Add((int)((System.Numerics.BigInteger)obj));
-                }
-            }
-
-            return list;
-        }
-
-        internal IList<int?> GetIntList(string name, IList<int?> std)
-        {
-            if (!ContainsField(name))
-            {
-                return std;
-            }
-
-            return GetIntList(name);
-        }
-
         public IList GetList(string name)
         {
             return (IList)_dict[name];
