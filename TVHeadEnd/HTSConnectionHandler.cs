@@ -276,10 +276,23 @@ namespace TVHeadEnd
                 return image;
             }
 
-            Init();
+            return GetAuthenticatedUrl(image);
+        }
+
+        /// <summary>
+        /// Builds an absolute, credentialed URL for a resource served by TVHeadend over HTTP.
+        /// </summary>
+        /// <remarks>
+        /// The web root is the one reported by the server, so a connection is established first.
+        /// </remarks>
+        /// <param name="relativePath">The path below the web root, with or without a leading slash.</param>
+        /// <returns>An absolute URL including the configured credentials.</returns>
+        public string GetAuthenticatedUrl(string relativePath)
+        {
+            EnsureConnection();
 
             return "http://" + _userName + ":" + _password + "@" + _tvhServerName + ":" + _httpPort + _webRoot
-                + "/" + image.TrimStart('/');
+                + "/" + relativePath.TrimStart('/');
         }
 
         public string? GetChannelImageUrl(string channelId)

@@ -322,29 +322,19 @@ namespace TVHeadEnd
             return channelItem;
         }
 
-        private static string BuildRecordingPath(string id)
+        private string BuildRecordingPath(string id)
         {
-            var config = Plugin.Instance.Configuration;
             try
             {
-                var tvhServerName = config.TVH_ServerName.Trim();
-                var httpPort = config.HTTP_Port;
-                var htspPort = config.HTSP_Port;
-                var webRoot = config.WebRoot;
-                if (webRoot.EndsWith('/'))
-                {
-                    webRoot = webRoot.Substring(0, webRoot.Length - 1);
-                }
-
-                var userName = config.Username.Trim();
-                var password = config.Password.Trim();
-                return "http://" + userName + ":" + password + "@" + tvhServerName + ":" + httpPort + webRoot + "/dvrfile/" + id;
+                // Built through the connection handler so the recording URL uses the web root
+                // TVHeadend reports, exactly like channel icons and stream URLs do.
+                return _htsConnectionHandler.GetAuthenticatedUrl("dvrfile/" + id);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "[TVHclient] RecordingsChannel: could not build a playback path for recording {RecordingId}", id);
+                return string.Empty;
             }
-
-            return string.Empty;
         }
 
         private async Task<ChannelItemResult> GetRecordingGroups(InternalChannelItemQuery query, CancellationToken cancellationToken)
