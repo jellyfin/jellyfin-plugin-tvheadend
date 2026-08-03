@@ -292,9 +292,31 @@ namespace TVHeadEnd.HTSP
             return false;
         }
 
+        /// <summary>
+        /// Gets the highest HTSP version the server itself supports.
+        /// </summary>
+        /// <remarks>
+        /// This is the raw <c>htspversion</c> from the hello response, which reports the server's
+        /// own maximum rather than the agreed version. Use <see cref="GetNegotiatedProtocolVersion"/>
+        /// to decide which fields the connection will actually carry.
+        /// </remarks>
+        /// <returns>The server's maximum supported HTSP version.</returns>
         public int GetServerProtocolVersion()
         {
             return _serverProtocolVersion;
+        }
+
+        /// <summary>
+        /// Gets the HTSP version actually in effect for this connection.
+        /// </summary>
+        /// <remarks>
+        /// TVHeadend applies <c>min(server version, requested version)</c> internally and does not
+        /// report the result, so the same minimum is computed here.
+        /// </remarks>
+        /// <returns>The negotiated HTSP version.</returns>
+        public int GetNegotiatedProtocolVersion()
+        {
+            return Math.Min(_serverProtocolVersion, (int)HTSMessage.HtspVersion);
         }
 
         public string? GetServername()

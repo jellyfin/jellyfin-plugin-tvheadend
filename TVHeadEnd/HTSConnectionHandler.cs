@@ -268,7 +268,16 @@ namespace TVHeadEnd
                     _htsConnection.Open(_tvhServerName, _htspPort);
                     _connected = _htsConnection.Authenticate(_userName, _password);
 
-                    _logger.LogDebug("[TVHclient] HTSConnectionHandler.ensureConnection: connection established {C}", _connected);
+                    _logger.LogInformation(
+                        "[TVHclient] HTSConnectionHandler.EnsureConnection: connection established = {Connected}; "
+                        + "TVH server = '{ServerName}' {ServerVersion}; HTSP version negotiated = {NegotiatedHtspVersion} "
+                        + "(server supports up to {ServerHtspVersion}, client up to {ClientHtspVersion})",
+                        _connected,
+                        _htsConnection.GetServername(),
+                        _htsConnection.GetServerversion(),
+                        _htsConnection.GetNegotiatedProtocolVersion(),
+                        _htsConnection.GetServerProtocolVersion(),
+                        HTSMessage.HtspVersion);
                 }
             }
         }
@@ -295,6 +304,16 @@ namespace TVHeadEnd
         {
             EnsureConnection();
             return _htsConnection!.GetServerProtocolVersion();
+        }
+
+        /// <summary>
+        /// Gets the HTSP version in effect for the current connection.
+        /// </summary>
+        /// <returns>The negotiated HTSP version.</returns>
+        public int GetNegotiatedProtocolVersion()
+        {
+            EnsureConnection();
+            return _htsConnection!.GetNegotiatedProtocolVersion();
         }
 
         public string? GetDiskSpace()
