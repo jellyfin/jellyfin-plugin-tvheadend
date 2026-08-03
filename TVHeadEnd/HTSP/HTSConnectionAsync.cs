@@ -39,6 +39,7 @@ namespace TVHeadEnd.HTSP
         private string? _servername;
         private string? _serverversion;
         private string? _diskSpace;
+        private string? _webRoot;
 
         private Thread? _receiveHandlerThread;
         private Thread? _messageBuilderThread;
@@ -206,6 +207,10 @@ namespace TVHeadEnd.HTSP
                     _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: hello didn't include required field 'htspversion' - htsp incorrectly implemented by tvheadend");
                 }
 
+                // TVHeadend only sends "webroot" when it is actually configured behind a
+                // path prefix; its absence means the server is served from the root.
+                _webRoot = helloResponse.GetString("webroot", null);
+
                 if (helloResponse.ContainsField("servername"))
                 {
                     _servername = helloResponse.GetString("servername");
@@ -327,6 +332,15 @@ namespace TVHeadEnd.HTSP
         public string? GetServerversion()
         {
             return _serverversion;
+        }
+
+        /// <summary>
+        /// Gets the web root TVHeadend reported during the HTSP handshake.
+        /// </summary>
+        /// <returns>The server's web root, or <c>null</c> if it serves from the root.</returns>
+        public string? GetWebRoot()
+        {
+            return _webRoot;
         }
 
         public string? GetDiskspace()

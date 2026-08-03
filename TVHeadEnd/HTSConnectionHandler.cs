@@ -167,24 +167,12 @@ namespace TVHeadEnd
             _tvhServerName = config.TVH_ServerName.Trim();
             _httpPort = config.HTTP_Port;
             _htspPort = config.HTSP_Port;
-            _webRoot = config.WebRoot;
-            if (_webRoot.EndsWith('/'))
-            {
-                _webRoot = _webRoot.Substring(0, _webRoot.Length - 1);
-            }
+            _webRoot = NormalizeWebRoot(config.WebRoot);
 
             _userName = config.Username.Trim();
             _password = config.Password.Trim();
 
-            if (_enableSubsMaudios)
-            {
-                // Use HTTP basic auth instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
-                _httpBaseUrl = "http://" + _userName + ":" + _password + "@" + _tvhServerName + ":" + _httpPort + _webRoot;
-            }
-            else
-            {
-                _httpBaseUrl = "http://" + _tvhServerName + ":" + _httpPort + _webRoot;
-            }
+            _httpBaseUrl = BuildHttpBaseUrl();
 
             string authInfo = _userName + ":" + _password;
             authInfo = Convert.ToBase64String(Encoding.Default.GetBytes(authInfo));
@@ -238,6 +226,71 @@ namespace TVHeadEnd
             return ResolveImageUrl(_channelDataHelper.GetChannelIcon4ChannelId(channelId));
         }
 
+        /// <summary>
+        /// Trims a web root into the '' or '/prefix' form used when building URLs.
+        /// </summary>
+        /// <param name="webRoot">The raw web root.</param>
+        /// <returns>The normalized web root.</returns>
+        private static string NormalizeWebRoot(string? webRoot)
+        {
+            if (string.IsNullOrWhiteSpace(webRoot))
+            {
+                return string.Empty;
+            }
+
+            string trimmed = webRoot.Trim().TrimEnd('/');
+
+            if (trimmed.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            return trimmed.StartsWith('/') ? trimmed : "/" + trimmed;
+        }
+
+        /// <summary>
+        /// Adopts the web root TVHeadend reported during the handshake.
+        /// </summary>
+        /// <remarks>
+        /// The server knows its own path prefix, so its value is authoritative and replaces the
+        /// configured one. This removes a common misconfiguration where a manually entered web
+        /// root does not match the server and every stream and image URL ends up wrong. The HTTP
+        /// URLs are rebuilt because they are assembled in Init(), before a connection exists.
+        /// </remarks>
+        /// <param name="reportedWebRoot">The web root from the hello response.</param>
+        private void ApplyServerWebRoot(string? reportedWebRoot)
+        {
+            string resolved = NormalizeWebRoot(reportedWebRoot);
+
+            if (string.Equals(resolved, _webRoot, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _logger.LogInformation(
+                "[TVHclient] HTSConnectionHandler: using web root '{ReportedWebRoot}' reported by TVHeadend instead of the configured '{ConfiguredWebRoot}'",
+                resolved,
+                _webRoot);
+
+            _webRoot = resolved;
+            _httpBaseUrl = BuildHttpBaseUrl();
+        }
+
+        /// <summary>
+        /// Builds the TVHeadend HTTP base URL from the current settings.
+        /// </summary>
+        /// <returns>The HTTP base URL.</returns>
+        private string BuildHttpBaseUrl()
+        {
+            if (_enableSubsMaudios)
+            {
+                // Use HTTP basic auth instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
+                return "http://" + _userName + ":" + _password + "@" + _tvhServerName + ":" + _httpPort + _webRoot;
+            }
+
+            return "http://" + _tvhServerName + ":" + _httpPort + _webRoot;
+        }
+
         public Dictionary<string, string> GetHeaders()
         {
             return new Dictionary<string, string>(_headers);
@@ -287,6 +340,11 @@ namespace TVHeadEnd
 
                     _htsConnection.Open(_tvhServerName, _htspPort);
                     _connected = _htsConnection.Authenticate(_userName, _password);
+
+                    if (_connected)
+                    {
+                        ApplyServerWebRoot(_htsConnection.GetWebRoot());
+                    }
 
                     _logger.LogInformation(
                         "[TVHclient] HTSConnectionHandler.EnsureConnection: connection established = {Connected}; "
@@ -361,7 +419,9 @@ namespace TVHeadEnd
 
         public string GetHttpBaseUrl()
         {
-            Init();
+            // The web root is taken from the HTSP handshake, so a connection is required
+            // before the base URL is known to be correct.
+            EnsureConnection();
             return _httpBaseUrl;
         }
 
