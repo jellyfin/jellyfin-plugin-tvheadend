@@ -167,7 +167,6 @@ namespace TVHeadEnd
             _tvhServerName = config.TVH_ServerName.Trim();
             _httpPort = config.HTTP_Port;
             _htspPort = config.HTSP_Port;
-            _webRoot = NormalizeWebRoot(config.WebRoot);
 
             _userName = config.Username.Trim();
             _password = config.Password.Trim();
@@ -211,10 +210,9 @@ namespace TVHeadEnd
         /// Adopts the web root TVHeadend reported during the handshake.
         /// </summary>
         /// <remarks>
-        /// The server knows its own path prefix, so its value is authoritative and replaces the
-        /// configured one. This removes a common misconfiguration where a manually entered web
-        /// root does not match the server and every stream and image URL ends up wrong. The HTTP
-        /// URLs are rebuilt because they are assembled in Init(), before a connection exists.
+        /// The server knows its own path prefix, so it is the only source for this value; an
+        /// absent field means TVHeadend is served from the root. The HTTP URLs are rebuilt
+        /// because they are assembled in Init(), before a connection exists.
         /// </remarks>
         /// <param name="reportedWebRoot">The web root from the hello response.</param>
         private void ApplyServerWebRoot(string? reportedWebRoot)
@@ -227,9 +225,8 @@ namespace TVHeadEnd
             }
 
             _logger.LogInformation(
-                "[TVHclient] HTSConnectionHandler: using web root '{ReportedWebRoot}' reported by TVHeadend instead of the configured '{ConfiguredWebRoot}'",
-                resolved,
-                _webRoot);
+                "[TVHclient] HTSConnectionHandler: TVHeadend reported web root '{ReportedWebRoot}'",
+                resolved);
 
             _webRoot = resolved;
             _httpBaseUrl = BuildHttpBaseUrl();
