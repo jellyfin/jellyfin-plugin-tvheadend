@@ -536,8 +536,8 @@ namespace TVHeadEnd
                 {
                     return new SeriesTimerInfo
                     {
-                        PostPaddingSeconds = Plugin.Instance.Configuration.Pre_Padding,
-                        PrePaddingSeconds = Plugin.Instance.Configuration.Post_Padding,
+                        PrePaddingSeconds = Plugin.Instance.Configuration.Pre_Padding,
+                        PostPaddingSeconds = Plugin.Instance.Configuration.Post_Padding,
                         RecordAnyChannel = true,
                         RecordAnyTime = true,
                         RecordNewOnly = false
