@@ -70,7 +70,8 @@ namespace TVHeadEnd
             _dvrDataHelper = new DvrDataHelper(loggerFactory.CreateLogger<DvrDataHelper>());
             _autorecDataHelper = new AutorecDataHelper(loggerFactory.CreateLogger<AutorecDataHelper>());
 
-            _channelDataHelper.SetChannelType4Other(_channelType);
+            // The channel type is applied in Init(), once the configuration has been read.
+            // ChannelDataHelper defaults to "Ignore" until then.
         }
 
         public static HTSConnectionHandler GetInstance(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory)
@@ -188,6 +189,11 @@ namespace TVHeadEnd
             string authInfo = _userName + ":" + _password;
             authInfo = Convert.ToBase64String(Encoding.Default.GetBytes(authInfo));
             _headers["Authorization"] = "Basic " + authInfo;
+
+            // The constructor runs before any configuration is available, so the channel type
+            // has to be handed to the data helper here, once it has actually been read.
+            _channelDataHelper.SetChannelType4Other(_channelType);
+
             _configured = true;
         }
 
