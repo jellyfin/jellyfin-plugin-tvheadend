@@ -293,7 +293,7 @@ namespace TVHeadEnd.DataHelper
             return result;
         }
 
-        public static int GetDaysOfWeekFromList(IReadOnlyList<DayOfWeek> days)
+        public static int GetDaysOfWeekFromList(IEnumerable<DayOfWeek> days)
         {
             int result = 0;
             foreach (DayOfWeek currDay in days)
