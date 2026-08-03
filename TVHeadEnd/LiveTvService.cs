@@ -575,7 +575,17 @@ namespace TVHeadEnd
                 return new List<ProgramInfo>();
             }
 
-            return twtRes.Result;
+            var programs = twtRes.Result.ToList();
+
+            // From HTSP v34 on the server sends imagecache references relative to the web root
+            // instead of absolute URLs, so they have to be resolved against the TVH endpoint.
+            foreach (var program in programs)
+            {
+                program.ImageUrl = _htsConnectionHandler.ResolveImageUrl(program.ImageUrl);
+                program.HasImage = !string.IsNullOrEmpty(program.ImageUrl);
+            }
+
+            return programs;
         }
 
         public async Task<IEnumerable<SeriesTimerInfo>> GetSeriesTimersAsync(CancellationToken cancellationToken)
