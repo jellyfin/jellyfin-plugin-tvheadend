@@ -20,6 +20,21 @@ namespace TVHeadEnd
 {
     public class HTSConnectionHandler : IHTSConnectionListener, IDisposable
     {
+        /// <summary>
+        /// DVR_PRIO_IMPORTANT - the lowest value TVHeadend accepts for a recording priority.
+        /// </summary>
+        private const int DvrPriorityImportant = 0;
+
+        /// <summary>
+        /// DVR_PRIO_NORMAL - the fallback used when the configured priority is out of range.
+        /// </summary>
+        private const int DvrPriorityNormal = 2;
+
+        /// <summary>
+        /// DVR_PRIO_NOTSET - leaves the priority to the TVHeadend DVR configuration.
+        /// </summary>
+        private const int DvrPriorityNotSet = 5;
+
         private static readonly object _syncRoot = new object();
 
         private static volatile HTSConnectionHandler? _instance;
@@ -158,10 +173,15 @@ namespace TVHeadEnd
             _enableSubsMaudios = config.EnableSubsMaudios;
             _forceDeinterlace = config.ForceDeinterlace;
 
-            if (_priority < 0 || _priority > 4)
+            if (_priority < DvrPriorityImportant || _priority > DvrPriorityNotSet)
             {
-                _priority = 2;
-                _logger.LogDebug("[TVHclient] HTSConnectionHandler.ensureConnection: priority was out of range [0-4] - set to 2");
+                _priority = DvrPriorityNormal;
+                _logger.LogWarning(
+                    "[TVHclient] HTSConnectionHandler.Init: priority {ConfiguredPriority} is out of range [{Lowest}-{Highest}] - using {Fallback} (normal)",
+                    config.Priority,
+                    DvrPriorityImportant,
+                    DvrPriorityNotSet,
+                    DvrPriorityNormal);
             }
 
             _tvhServerName = config.TVH_ServerName.Trim();

@@ -20,16 +20,18 @@
                 </div>
                 <div class="inputContainer">
                     <input is="emby-input" type="text" id="txtPriority" label="Priority of Recordings" />
-                    <div class="fieldDescription">0 = Important, 1 = High, 2 = Normal, 3 = Low, 4 = Unimportant</div>
+                    <div class="fieldDescription">0 = Important, 1 = High, 2 = Normal, 3 = Low, 4 = Unimportant, 5 = leave it to the TVHeadend DVR configuration (default)</div>
                 </div>
                 <div class="inputContainer">
                     <input is="emby-input" type="text" id="txtProfile" label="Profile for Recordings" />
                 </div>
                 <div class="inputContainer">
                     <input is="emby-input" type="text" id="txtPrePadding" label="Pre-recording Padding in seconds" />
+                    <div class="fieldDescription">TVHeadend stores padding in whole minutes, so values are rounded down and anything below 60 seconds has no effect.</div>
                 </div>
                 <div class="inputContainer">
                     <input is="emby-input" type="text" id="txtPostPadding" label="Post-recording Padding in seconds" />
+                    <div class="fieldDescription">TVHeadend stores padding in whole minutes, so values are rounded down and anything below 60 seconds has no effect.</div>
                 </div>
                 <div class="selectContainer">
                     <select is="emby-select" id="selChannelType" label="Use this channel type for channels tagged with Other">
