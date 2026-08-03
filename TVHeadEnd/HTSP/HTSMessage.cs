@@ -12,7 +12,16 @@ namespace TVHeadEnd.HTSP
 {
     public class HTSMessage
     {
-        public const long HtspVersion = 20;
+        /// <summary>
+        /// The highest HTSP protocol version this client understands.
+        /// </summary>
+        /// <remarks>
+        /// TVHeadend negotiates <c>min(server version, requested version)</c>, so this value is
+        /// an upper bound: older servers simply agree on their own version and newer ones are
+        /// held at this one. It therefore has to be the newest version whose behaviour the
+        /// client actually handles, because the server withholds every field gated above it.
+        /// </remarks>
+        public const long HtspVersion = 44;
         private const byte HmfMap = 1;
         private const byte HmfS64 = 2;
         private const byte HmfStr = 3;
