@@ -259,11 +259,13 @@ namespace TVHeadEnd
             if (_htsConnection == null || _htsConnection.NeedsRestart())
             {
                 _logger.LogDebug("[TVHclient] HTSConnectionHandler.ensureConnection: create new HTS connection");
-                Version? version = Assembly.GetEntryAssembly()?.GetName().Version;
+                // "clientversion" is the client's own version, not the protocol version -
+                // TVHeadend only reports it, but sending the HTSP number here was misleading.
+                Version? version = typeof(HTSConnectionHandler).Assembly.GetName().Version;
                 _htsConnection = new HTSConnectionAsync(
                     this,
-                    "TVHclient4Emby-" + (version?.ToString() ?? "unknown"),
-                    string.Empty + HTSMessage.HtspVersion,
+                    "Jellyfin-TVHeadend",
+                    version?.ToString() ?? "unknown",
                     _loggerFactory);
                 _connected = false;
             }
