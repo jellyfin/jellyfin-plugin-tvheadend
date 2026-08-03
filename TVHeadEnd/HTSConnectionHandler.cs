@@ -186,47 +186,6 @@ namespace TVHeadEnd
         }
 
         /// <summary>
-        /// Turns an image reference from an HTSP message into an absolute URL.
-        /// </summary>
-        /// <remarks>
-        /// TVHeadend's imagecache references are version dependent: below the per-field
-        /// threshold the server sends an absolute <c>http://</c> URL, between HTSP v8 and v14
-        /// a root-relative <c>/imagecache/N</c> path, and from v15 on a relative
-        /// <c>imagecache/N</c> path. EPG providers may also supply an absolute URL directly.
-        /// Anything that is not already absolute is resolved against the configured TVHeadend
-        /// HTTP endpoint, so every negotiated protocol version yields a usable URL.
-        /// </remarks>
-        /// <param name="image">The raw image value from an HTSP message.</param>
-        /// <returns>An absolute URL, or <c>null</c> when no image was supplied.</returns>
-        public string? ResolveImageUrl(string? image)
-        {
-            if (string.IsNullOrEmpty(image))
-            {
-                return null;
-            }
-
-            if (image.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-                || image.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            {
-                return image;
-            }
-
-            Init();
-
-            return "http://" + _userName + ":" + _password + "@" + _tvhServerName + ":" + _httpPort + _webRoot
-                + "/" + image.TrimStart('/');
-        }
-
-        public string? GetChannelImageUrl(string channelId)
-        {
-            Init();
-
-            _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: channelId: {Id}", channelId);
-
-            return ResolveImageUrl(_channelDataHelper.GetChannelIcon4ChannelId(channelId));
-        }
-
-        /// <summary>
         /// Trims a web root into the '' or '/prefix' form used when building URLs.
         /// </summary>
         /// <param name="webRoot">The raw web root.</param>
@@ -289,6 +248,47 @@ namespace TVHeadEnd
             }
 
             return "http://" + _tvhServerName + ":" + _httpPort + _webRoot;
+        }
+
+        /// <summary>
+        /// Turns an image reference from an HTSP message into an absolute URL.
+        /// </summary>
+        /// <remarks>
+        /// TVHeadend's imagecache references are version dependent: below the per-field
+        /// threshold the server sends an absolute <c>http://</c> URL, between HTSP v8 and v14
+        /// a root-relative <c>/imagecache/N</c> path, and from v15 on a relative
+        /// <c>imagecache/N</c> path. EPG providers may also supply an absolute URL directly.
+        /// Anything that is not already absolute is resolved against the configured TVHeadend
+        /// HTTP endpoint, so every negotiated protocol version yields a usable URL.
+        /// </remarks>
+        /// <param name="image">The raw image value from an HTSP message.</param>
+        /// <returns>An absolute URL, or <c>null</c> when no image was supplied.</returns>
+        public string? ResolveImageUrl(string? image)
+        {
+            if (string.IsNullOrEmpty(image))
+            {
+                return null;
+            }
+
+            if (image.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                || image.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                return image;
+            }
+
+            Init();
+
+            return "http://" + _userName + ":" + _password + "@" + _tvhServerName + ":" + _httpPort + _webRoot
+                + "/" + image.TrimStart('/');
+        }
+
+        public string? GetChannelImageUrl(string channelId)
+        {
+            Init();
+
+            _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: channelId: {Id}", channelId);
+
+            return ResolveImageUrl(_channelDataHelper.GetChannelIcon4ChannelId(channelId));
         }
 
         public Dictionary<string, string> GetHeaders()
