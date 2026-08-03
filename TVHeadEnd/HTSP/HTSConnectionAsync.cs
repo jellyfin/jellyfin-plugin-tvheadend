@@ -12,8 +12,6 @@ namespace TVHeadEnd.HTSP
 {
     public sealed class HTSConnectionAsync : IDisposable
     {
-        private const long BytesPerGiga = 1024 * 1024 * 1024;
-
         private readonly object _lock;
         private readonly IHTSConnectionListener _listener;
         private readonly string _clientName;
@@ -38,7 +36,6 @@ namespace TVHeadEnd.HTSP
         private int _serverProtocolVersion;
         private string? _servername;
         private string? _serverversion;
-        private string? _diskSpace;
         private string? _webRoot;
 
         private Thread? _receiveHandlerThread;
@@ -254,35 +251,6 @@ namespace TVHeadEnd.HTSP
                     bool auth = authResponse.GetInt("noaccess", 0) != 1;
                     if (auth)
                     {
-                        HTSMessage getDiskSpaceMessage = new HTSMessage();
-                        getDiskSpaceMessage.Method = "getDiskSpace";
-                        SendMessage(getDiskSpaceMessage, loopBackResponseHandler);
-                        HTSMessage diskSpaceResponse = loopBackResponseHandler.GetResponse();
-                        if (diskSpaceResponse != null)
-                        {
-                            long freeDiskSpace = -1;
-                            long totalDiskSpace = -1;
-                            if (diskSpaceResponse.ContainsField("freediskspace"))
-                            {
-                                freeDiskSpace = diskSpaceResponse.GetLong("freediskspace") / BytesPerGiga;
-                            }
-                            else
-                            {
-                                _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: getDiskSpace didn't include required field 'freediskspace' - htsp incorrectly implemented by tvheadend");
-                            }
-
-                            if (diskSpaceResponse.ContainsField("totaldiskspace"))
-                            {
-                                totalDiskSpace = diskSpaceResponse.GetLong("totaldiskspace") / BytesPerGiga;
-                            }
-                            else
-                            {
-                                _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: getDiskSpace didn't include required field 'totaldiskspace' - htsp incorrectly implemented by tvheadend");
-                            }
-
-                            _diskSpace = freeDiskSpace + "GB / " + totalDiskSpace + "GB";
-                        }
-
                         HTSMessage enableAsyncMetadataMessage = new HTSMessage();
                         enableAsyncMetadataMessage.Method = "enableAsyncMetadata";
                         SendMessage(enableAsyncMetadataMessage, null);
@@ -341,11 +309,6 @@ namespace TVHeadEnd.HTSP
         public string? GetWebRoot()
         {
             return _webRoot;
-        }
-
-        public string? GetDiskspace()
-        {
-            return _diskSpace;
         }
 
         public void SendMessage(HTSMessage message, IHTSResponseHandler? responseHandler)

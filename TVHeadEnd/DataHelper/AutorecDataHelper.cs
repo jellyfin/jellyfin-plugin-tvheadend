@@ -19,14 +19,6 @@ namespace TVHeadEnd.DataHelper
             _data = new Dictionary<string, HTSMessage>();
         }
 
-        public void Clean()
-        {
-            lock (_data)
-            {
-                _data.Clear();
-            }
-        }
-
         public void AutorecEntryAdd(HTSMessage message)
         {
             string? id = message.GetString("id");

@@ -30,14 +30,6 @@ namespace TVHeadEnd.DataHelper
             _channelType4Other = channelType4Other ?? "Ignore";
         }
 
-        public void Clean()
-        {
-            lock (_data)
-            {
-                _data.Clear();
-            }
-        }
-
         public void Add(HTSMessage message)
         {
             lock (_data)
