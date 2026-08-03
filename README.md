@@ -5,8 +5,8 @@
 <img alt="Plugin Banner" src="https://raw.githubusercontent.com/jellyfin/jellyfin-ux/master/plugins/SVG/jellyfin-plugin-tvheadend.svg?sanitize=true"/>
 <br/>
 <br/>
-<a href="https://github.com/jellyfin/jellyfin-plugin-tvheadend/actions?query=workflow%3A%22Test+Build+Plugin%22">
-<img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/jellyfin/jellyfin-plugin-tvheadend/Test%20Build%20Plugin.svg">
+<a href="https://github.com/jellyfin/jellyfin-plugin-tvheadend/actions/workflows/build.yaml">
+<img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/jellyfin/jellyfin-plugin-tvheadend/build.yaml?branch=master"/>
 </a>
 <a href="https://github.com/jellyfin/jellyfin-plugin-tvheadend">
 <img alt="MIT License" src="https://img.shields.io/github/license/jellyfin/jellyfin-plugin-tvheadend.svg"/>
@@ -18,7 +18,7 @@
 
 ## About
 
-This is a plugin allows you to manage TVHeadend from Jellyfin.
+This plugin allows you to manage TVHeadend from Jellyfin.
 
 ## Installation
 
@@ -26,14 +26,27 @@ This is a plugin allows you to manage TVHeadend from Jellyfin.
 
 ## Build
 
-1. To build this plugin you will need [.Net 8.x](https://dotnet.microsoft.com/download/dotnet/8.0).
+1. To build this plugin you will need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
-2. Build plugin with following command
-  ```
-  dotnet publish --configuration Release --output bin
+2. Build the plugin with the following command:
+
+  ```sh
+  dotnet publish TVHeadEnd/TVHeadEnd.csproj --configuration Release --output bin
   ```
 
-3. Place the dll-file in the `plugins/tvheadend` folder (you might need to create the folders) of your JF install
+3. Place `bin/TVHeadEnd.dll` in the `plugins/tvheadend` folder (you might need to create the folders) of your Jellyfin install.
+
+## Development
+
+The build enforces the shared Jellyfin analyzer set (StyleCop, .NET code analysis, SerilogAnalyzer and MultithreadingAnalyzer) with `TreatWarningsAsErrors`, so warnings fail the build.
+Before pushing, check formatting and analyzer compliance:
+
+```sh
+dotnet format TVHeadEnd.slnx --verify-no-changes
+dotnet build TVHeadEnd.slnx -c Release
+```
+
+`dotnet format TVHeadEnd.slnx` (without the flag) applies the fixes it can automatically.
 
 ## Releasing
 
