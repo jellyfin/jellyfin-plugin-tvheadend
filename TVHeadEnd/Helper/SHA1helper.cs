@@ -1,27 +1,28 @@
+using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace TVHeadEnd.Helper
 {
-    public class SHA1helper
+    public static class SHA1Helper
     {
+        [SuppressMessage(
+            "Security",
+            "CA5350:Do Not Use Weak Cryptographic Algorithms",
+            Justification = "The HTSP protocol specifies a SHA1 digest over the password and the server challenge. The algorithm is dictated by TVHeadend and cannot be changed client-side.")]
         public static byte[] GenerateSaltedSHA1(string plainTextString, byte[] saltBytes)
         {
-            using HashAlgorithm algorithm = SHA1.Create();
-            byte[] plainTextBytes = System.Text.Encoding.UTF8.GetBytes(plainTextString);
+            ArgumentNullException.ThrowIfNull(plainTextString);
+            ArgumentNullException.ThrowIfNull(saltBytes);
+
+            byte[] plainTextBytes = Encoding.UTF8.GetBytes(plainTextString);
 
             byte[] plainTextWithSaltBytes = new byte[plainTextBytes.Length + saltBytes.Length];
-            for (int i = 0; i < plainTextBytes.Length; i++)
-            {
-                plainTextWithSaltBytes[i] = plainTextBytes[i];
-            }
-            for (int i = 0; i < saltBytes.Length; i++)
-            {
-                plainTextWithSaltBytes[plainTextBytes.Length + i] = saltBytes[i];
-            }
+            plainTextBytes.CopyTo(plainTextWithSaltBytes, 0);
+            saltBytes.CopyTo(plainTextWithSaltBytes, plainTextBytes.Length);
 
-            byte[] digest = algorithm.ComputeHash(plainTextWithSaltBytes);
-
-            return digest;
+            return SHA1.HashData(plainTextWithSaltBytes);
         }
     }
 }

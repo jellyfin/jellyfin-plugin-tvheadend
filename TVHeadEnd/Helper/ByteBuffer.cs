@@ -1,47 +1,48 @@
+using System;
+using System.IO;
 
 namespace TVHeadEnd.Helper
 {
-    public class ByteBuffer
+    public sealed class ByteBuffer : IDisposable
     {
-        private System.IO.MemoryStream stream;
-        private System.IO.BinaryReader reader;
-        private System.IO.BinaryWriter writer;
+        private readonly MemoryStream _stream;
+        private readonly BinaryReader _reader;
+        private readonly BinaryWriter _writer;
 
         public ByteBuffer(byte[] data)
         {
-            stream = new System.IO.MemoryStream();
-            reader = new System.IO.BinaryReader(stream);
-            writer = new System.IO.BinaryWriter(stream);
-            writer.Write(data);
-            stream.Position = 0;
-        }
-
-        ~ByteBuffer()
-        {
-            reader.Close();
-            writer.Close();
-            stream.Close();
-            stream.Dispose();
+            _stream = new MemoryStream();
+            _reader = new BinaryReader(_stream);
+            _writer = new BinaryWriter(_stream);
+            _writer.Write(data);
+            _stream.Position = 0;
         }
 
         public long Length()
         {
-            return stream.Length;
+            return _stream.Length;
         }
 
-        public bool hasRemaining()
+        public bool HasRemaining()
         {
-            return (stream.Length - stream.Position) > 0;
+            return (_stream.Length - _stream.Position) > 0;
         }
 
-        public byte get()
+        public byte Get()
         {
-            return (byte)stream.ReadByte();
+            return (byte)_stream.ReadByte();
         }
 
-        public void get(byte[] dst)
+        public void Get(byte[] dst)
         {
-            stream.Read(dst, 0, dst.Length);
+            _stream.Read(dst, 0, dst.Length);
+        }
+
+        public void Dispose()
+        {
+            _reader.Dispose();
+            _writer.Dispose();
+            _stream.Dispose();
         }
     }
 }
