@@ -109,27 +109,19 @@ namespace TVHeadEnd.HTSP.Responses
                         pi.Id = string.Empty + currEventMessage.GetInt("eventId");
                     }
 
-                    if (currEventMessage.ContainsField("serieslinkId"))
+                    if (currEventMessage.ContainsField("serieslinkUri"))
                     {
-                        pi.SeriesId = string.Empty + currEventMessage.GetInt("serieslinkId");
+                        pi.SeriesId = currEventMessage.GetString("serieslinkUri");
                     }
 
                     if (currEventMessage.ContainsField("episodeNumber"))
                     {
                         pi.EpisodeNumber = currEventMessage.GetInt("episodeNumber");
                     }
-                    else if (currEventMessage.ContainsField("episodeId"))
-                    {
-                        pi.EpisodeNumber = currEventMessage.GetInt("episodeId");
-                    }
 
                     if (currEventMessage.ContainsField("seasonNumber"))
                     {
                         pi.SeasonNumber = currEventMessage.GetInt("seasonNumber");
-                    }
-                    else if (currEventMessage.ContainsField("seasonId"))
-                    {
-                        pi.SeasonNumber = currEventMessage.GetInt("seasonId");
                     }
 
                     if (currEventMessage.ContainsField("title"))
