@@ -14,6 +14,10 @@ namespace TVHeadEnd.HTSP
     {
         private const long BytesPerGiga = 1024 * 1024 * 1024;
 
+        // Bounded wait for handshake responses so that a connection dying
+        // during the handshake can't block the caller forever.
+        private static readonly TimeSpan ResponseTimeout = TimeSpan.FromSeconds(20);
+
         private volatile Boolean _needsRestart = false;
         private volatile Boolean _connected;
         private volatile int _seq = 0;
@@ -116,7 +120,7 @@ namespace TVHeadEnd.HTSP
             return _needsRestart;
         }
 
-        public void open(String hostname, int port)
+        public void open(String hostname, int port, TimeSpan connectTimeout)
         {
             if (_connected)
             {
@@ -124,63 +128,72 @@ namespace TVHeadEnd.HTSP
             }
 
             Monitor.Enter(_lock);
-            while (!_connected)
+            try
             {
-                try
+                // Establish the remote endpoint for the socket.
+
+                IPAddress ipAddress;
+                if (!IPAddress.TryParse(hostname, out ipAddress))
                 {
-                    // Establish the remote endpoint for the socket.
-
-                    IPAddress ipAddress;
-                    if (!IPAddress.TryParse(hostname, out ipAddress))
-                    {
-                        // no IP --> ask DNS
-                        IPHostEntry ipHostInfo = Dns.GetHostEntry(hostname);
-                        ipAddress = ipHostInfo.AddressList[0];
-                    }
-
-                    IPEndPoint remoteEP = new IPEndPoint(ipAddress, port);
-
-                    _logger.LogDebug("[TVHclient] HTSConnectionAsync.open: IPEndPoint = '{IP}'; AddressFamily = '{AF}'",
-                        remoteEP.ToString(), ipAddress.AddressFamily);
-
-                    // Create a TCP/IP  socket.
-                    _socket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-
-                    // connect to server
-                    _socket.Connect(remoteEP);
-
-                    _connected = true;
-                    _logger.LogDebug("[TVHclient] HTSConnectionAsync.open: socket connected");
+                    // no IP --> ask DNS
+                    IPHostEntry ipHostInfo = Dns.GetHostEntry(hostname);
+                    ipAddress = ipHostInfo.AddressList[0];
                 }
-                catch (Exception ex)
+
+                IPEndPoint remoteEP = new IPEndPoint(ipAddress, port);
+
+                _logger.LogDebug("[TVHclient] HTSConnectionAsync.open: IPEndPoint = '{IP}'; AddressFamily = '{AF}'",
+                    remoteEP.ToString(), ipAddress.AddressFamily);
+
+                // Create a TCP/IP  socket.
+                _socket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+
+                // Detect a silently dead peer (e.g. remote server or VPN link
+                // gone away without RST/FIN) within ~90s instead of blocking
+                // in Receive() forever.
+                _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+                _socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, 60);
+                _socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 10);
+                _socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 3);
+
+                // Connect to the server, but never wait longer than connectTimeout:
+                // when the host is unreachable a plain Connect() blocks for the
+                // full kernel TCP timeout (about 2 minutes on Linux).
+                IAsyncResult connectResult = _socket.BeginConnect(remoteEP, null, null);
+                if (!connectResult.AsyncWaitHandle.WaitOne(connectTimeout, true))
                 {
-                    _logger.LogError(ex, "[TVHclient] HTSConnectionAsync.open: exception caught");
-
-                    Thread.Sleep(2000);
+                    _socket.Close();
+                    throw new TimeoutException("No response from '" + remoteEP + "' within " + connectTimeout.TotalSeconds + "s");
                 }
+                _socket.EndConnect(connectResult);
+
+                _connected = true;
+                _logger.LogDebug("[TVHclient] HTSConnectionAsync.open: socket connected");
+
+                ThreadStart ReceiveHandlerRef = new ThreadStart(ReceiveHandler);
+                _receiveHandlerThread = new Thread(ReceiveHandlerRef);
+                _receiveHandlerThread.IsBackground = true;
+                _receiveHandlerThread.Start();
+
+                ThreadStart MessageBuilderRef = new ThreadStart(MessageBuilder);
+                _messageBuilderThread = new Thread(MessageBuilderRef);
+                _messageBuilderThread.IsBackground = true;
+                _messageBuilderThread.Start();
+
+                ThreadStart SendingHandlerRef = new ThreadStart(SendingHandler);
+                _sendingHandlerThread = new Thread(SendingHandlerRef);
+                _sendingHandlerThread.IsBackground = true;
+                _sendingHandlerThread.Start();
+
+                ThreadStart MessageDistributorRef = new ThreadStart(MessageDistributor);
+                _messageDistributorThread = new Thread(MessageDistributorRef);
+                _messageDistributorThread.IsBackground = true;
+                _messageDistributorThread.Start();
             }
-
-            ThreadStart ReceiveHandlerRef = new ThreadStart(ReceiveHandler);
-            _receiveHandlerThread = new Thread(ReceiveHandlerRef);
-            _receiveHandlerThread.IsBackground = true;
-            _receiveHandlerThread.Start();
-
-            ThreadStart MessageBuilderRef = new ThreadStart(MessageBuilder);
-            _messageBuilderThread = new Thread(MessageBuilderRef);
-            _messageBuilderThread.IsBackground = true;
-            _messageBuilderThread.Start();
-
-            ThreadStart SendingHandlerRef = new ThreadStart(SendingHandler);
-            _sendingHandlerThread = new Thread(SendingHandlerRef);
-            _sendingHandlerThread.IsBackground = true;
-            _sendingHandlerThread.Start();
-
-            ThreadStart MessageDistributorRef = new ThreadStart(MessageDistributor);
-            _messageDistributorThread = new Thread(MessageDistributorRef);
-            _messageDistributorThread.IsBackground = true;
-            _messageDistributorThread.Start();
-
-            Monitor.Exit(_lock);
+            finally
+            {
+                Monitor.Exit(_lock);
+            }
         }
 
         public Boolean authenticate(String username, String password)
@@ -196,7 +209,7 @@ namespace TVHeadEnd.HTSP
 
             LoopBackResponseHandler loopBackResponseHandler = new LoopBackResponseHandler();
             sendMessage(helloMessage, loopBackResponseHandler);
-            HTSMessage helloResponse = loopBackResponseHandler.getResponse();
+            HTSMessage helloResponse = loopBackResponseHandler.getResponse(ResponseTimeout);
             if (helloResponse != null)
             {
                 if (helloResponse.containsField("htspversion"))
@@ -246,7 +259,7 @@ namespace TVHeadEnd.HTSP
                 authMessage.putField("username", username);
                 authMessage.putField("digest", digest);
                 sendMessage(authMessage, loopBackResponseHandler);
-                HTSMessage authResponse = loopBackResponseHandler.getResponse();
+                HTSMessage authResponse = loopBackResponseHandler.getResponse(ResponseTimeout);
                 if (authResponse != null)
                 {
                     Boolean auth = authResponse.getInt("noaccess", 0) != 1;
@@ -255,7 +268,7 @@ namespace TVHeadEnd.HTSP
                         HTSMessage getDiskSpaceMessage = new HTSMessage();
                         getDiskSpaceMessage.Method = "getDiskSpace";
                         sendMessage(getDiskSpaceMessage, loopBackResponseHandler);
-                        HTSMessage diskSpaceResponse = loopBackResponseHandler.getResponse();
+                        HTSMessage diskSpaceResponse = loopBackResponseHandler.getResponse(ResponseTimeout);
                         if (diskSpaceResponse != null)
                         {
                             long freeDiskSpace = -1;

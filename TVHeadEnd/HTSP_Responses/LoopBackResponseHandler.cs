@@ -1,3 +1,4 @@
+using System;
 using TVHeadEnd.Helper;
 using TVHeadEnd.HTSP;
 
@@ -20,6 +21,12 @@ namespace TVHeadEnd.HTSP_Responses
         public HTSMessage getResponse()
         {
             return _responseDataQueue.Dequeue();
+        }
+
+        public HTSMessage getResponse(TimeSpan timeout)
+        {
+            HTSMessage response;
+            return _responseDataQueue.TryDequeue(out response, timeout) ? response : null;
         }
     }
 }
