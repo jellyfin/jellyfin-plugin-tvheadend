@@ -98,9 +98,9 @@ namespace TVHeadEnd.HTSP_Responses
                         pi.Id = "" + currEventMessage.getInt("eventId");
                     }
 
-                    if (currEventMessage.containsField("serieslinkId"))
+                    if (currEventMessage.containsField("serieslinkUri"))
                     {
-                        pi.SeriesId = "" + currEventMessage.getInt("serieslinkId");
+                        pi.SeriesId = currEventMessage.getString("serieslinkUri");
                     }
 
                     if (currEventMessage.containsField("episodeNumber"))

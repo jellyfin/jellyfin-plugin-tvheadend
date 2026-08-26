@@ -13,8 +13,6 @@ namespace TVHeadEnd.DataHelper
         private readonly ILogger<AutorecDataHelper> _logger;
         private readonly Dictionary<string, HTSMessage> _data;
 
-        private readonly DateTime _initialDateTimeUTC = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
         public AutorecDataHelper(ILogger<AutorecDataHelper> logger)
         {
             _logger = logger;
@@ -91,7 +89,11 @@ namespace TVHeadEnd.DataHelper
                         }
 
                         HTSMessage m = entry.Value;
-                        SeriesTimerInfo sti = new SeriesTimerInfo();
+                        SeriesTimerInfo sti = new SeriesTimerInfo
+                        {
+                            RecordAnyChannel = true,
+                            RecordAnyTime = true
+                        };
 
                         try
                         {
@@ -100,8 +102,9 @@ namespace TVHeadEnd.DataHelper
                                 sti.Id = m.getString("id");
                             }
                         }
-                        catch (InvalidCastException)
+                        catch (InvalidCastException ex)
                         {
+                            logInvalidField(ex, "id", entry.Key);
                         }
 
                         try
@@ -112,32 +115,50 @@ namespace TVHeadEnd.DataHelper
                                 sti.Days = getDayOfWeekListFromInt(daysOfWeek);
                             }
                         }
-                        catch (InvalidCastException)
+                        catch (InvalidCastException ex)
                         {
+                            logInvalidField(ex, "daysOfWeek", entry.Key);
                         }
 
-                        sti.StartDate = DateTime.Now.ToUniversalTime();
+                        sti.StartDate = DateTime.UtcNow;
+                        sti.EndDate = sti.StartDate;
+
+                        // TVHeadend's retention field is the lifetime of completed
+                        // recordings. SeriesTimerInfo has no equivalent property;
+                        // EndDate instead represents the end of the daily match window.
 
                         try
                         {
-                            if (m.containsField("retention"))
+                            if (m.containsField("start"))
                             {
-                                int retentionInDays = m.getInt("retention");
-
-                                if (DateTime.MaxValue.AddDays(-retentionInDays) < DateTime.Now)
+                                int startMinutes = m.getInt("start");
+                                if (startMinutes >= 0)
                                 {
-                                    _logger.LogError("[TVHclient] AutorecDataHelper.buildAutorecInfos: change during 'EndDate' calculation: set retention value from '{days}' to '365' days", retentionInDays);
-                                    sti.EndDate = DateTime.Now.AddDays(365).ToUniversalTime();
+                                    int endMinutes = m.getInt("startWindow", startMinutes);
+                                    sti.StartDate = DateTime.Today.AddMinutes(startMinutes).ToUniversalTime();
+                                    sti.EndDate = DateTime.Today.AddMinutes(endMinutes).ToUniversalTime();
+                                    // A window whose end is earlier than its start wraps across midnight.
+                                    if (sti.EndDate < sti.StartDate)
+                                    {
+                                        sti.EndDate = sti.EndDate.AddDays(1);
+                                    }
+
+                                    sti.RecordAnyTime = false;
                                 }
                                 else
                                 {
-                                    sti.EndDate = DateTime.Now.AddDays(retentionInDays).ToUniversalTime();
+                                    sti.RecordAnyTime = true;
                                 }
                             }
+                            else
+                            {
+                                sti.RecordAnyTime = true;
+                            }
                         }
-                        catch (Exception e)
+                        catch (InvalidCastException ex)
                         {
-                            _logger.LogError(e, "[TVHclient] AutorecDataHelper.buildAutorecInfos: exception during 'EndDate' calculation. HTSMessage: {m}", m.ToString());
+                            sti.RecordAnyTime = true;
+                            logInvalidField(ex, "start/startWindow", entry.Key);
                         }
 
                         try
@@ -145,10 +166,17 @@ namespace TVHeadEnd.DataHelper
                             if (m.containsField("channel"))
                             {
                                 sti.ChannelId = "" + m.getInt("channel");
+                                sti.RecordAnyChannel = false;
+                            }
+                            else
+                            {
+                                sti.RecordAnyChannel = true;
                             }
                         }
-                        catch (InvalidCastException)
+                        catch (InvalidCastException ex)
                         {
+                            sti.RecordAnyChannel = true;
+                            logInvalidField(ex, "channel", entry.Key);
                         }
 
                         try
@@ -159,8 +187,9 @@ namespace TVHeadEnd.DataHelper
                                 sti.IsPrePaddingRequired = true;
                             }
                         }
-                        catch (InvalidCastException)
+                        catch (InvalidCastException ex)
                         {
+                            logInvalidField(ex, "startExtra", entry.Key);
                         }
 
                         try
@@ -171,19 +200,25 @@ namespace TVHeadEnd.DataHelper
                                 sti.IsPostPaddingRequired = true;
                             }
                         }
-                        catch (InvalidCastException)
+                        catch (InvalidCastException ex)
                         {
+                            logInvalidField(ex, "stopExtra", entry.Key);
                         }
 
                         try
                         {
-                            if (m.containsField("title"))
+                            if (m.containsField("name"))
+                            {
+                                sti.Name = m.getString("name");
+                            }
+                            else if (m.containsField("title"))
                             {
                                 sti.Name = m.getString("title");
                             }
                         }
-                        catch (InvalidCastException)
+                        catch (InvalidCastException ex)
                         {
+                            logInvalidField(ex, "name/title", entry.Key);
                         }
 
                         try
@@ -193,8 +228,9 @@ namespace TVHeadEnd.DataHelper
                                 sti.Overview = m.getString("description");
                             }
                         }
-                        catch (InvalidCastException)
+                        catch (InvalidCastException ex)
                         {
+                            logInvalidField(ex, "description", entry.Key);
                         }
 
                         try
@@ -204,27 +240,46 @@ namespace TVHeadEnd.DataHelper
                                 sti.Priority = m.getInt("priority");
                             }
                         }
-                        catch (InvalidCastException)
+                        catch (InvalidCastException ex)
                         {
+                            logInvalidField(ex, "priority", entry.Key);
                         }
 
                         try
                         {
-                            if (m.containsField("title"))
+                            if (m.containsField("serieslinkUri"))
                             {
-                                sti.SeriesId = m.getString("title");
+                                sti.SeriesId = m.getString("serieslinkUri");
                             }
                         }
-                        catch (InvalidCastException)
+                        catch (InvalidCastException ex)
                         {
+                            logInvalidField(ex, "serieslinkUri", entry.Key);
                         }
 
-                        /*
-                                public string ProgramId { get; set; }
-                                public bool RecordAnyChannel { get; set; }
-                                public bool RecordAnyTime { get; set; }
-                                public bool RecordNewOnly { get; set; }
-                         */
+                        try
+                        {
+                            if (m.containsField("dupDetect"))
+                            {
+                                sti.RecordNewOnly = m.getInt("dupDetect") != 0;
+                            }
+                        }
+                        catch (InvalidCastException ex)
+                        {
+                            logInvalidField(ex, "dupDetect", entry.Key);
+                        }
+
+                        try
+                        {
+                            if (m.containsField("maxCount"))
+                            {
+                                sti.KeepUpTo = m.getInt("maxCount");
+                            }
+                        }
+                        catch (InvalidCastException ex)
+                        {
+                            logInvalidField(ex, "maxCount", entry.Key);
+                        }
 
                         result.Add(sti);
                     }
@@ -232,6 +287,15 @@ namespace TVHeadEnd.DataHelper
                     return result;
                 }
             });
+        }
+
+        private void logInvalidField(InvalidCastException exception, string fieldName, string autorecId)
+        {
+            _logger.LogWarning(
+                exception,
+                "[TVHclient] AutorecDataHelper.buildAutorecInfos: could not read field '{field}' for autorecord entry '{id}'",
+                fieldName,
+                autorecId);
         }
 
         private List<DayOfWeek> getDayOfWeekListFromInt(int daysOfWeek)
@@ -303,9 +367,9 @@ namespace TVHeadEnd.DataHelper
 
         public static int getMinutesFromMidnight(DateTime time)
         {
-            DateTime utcTime = time.ToUniversalTime();
-            int hours = utcTime.Hour;
-            int minute = utcTime.Minute;
+            DateTime localTime = time.ToLocalTime();
+            int hours = localTime.Hour;
+            int minute = localTime.Minute;
             int minutes = (hours * 60) + minute;
             return minutes;
         }
