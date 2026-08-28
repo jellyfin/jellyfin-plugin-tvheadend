@@ -70,8 +70,6 @@ namespace TVHeadEnd
             _channelDataHelper = new ChannelDataHelper(loggerFactory.CreateLogger<ChannelDataHelper>());
             _dvrDataHelper = new DvrDataHelper(loggerFactory.CreateLogger<DvrDataHelper>());
             _autorecDataHelper = new AutorecDataHelper(loggerFactory.CreateLogger<AutorecDataHelper>());
-
-            _channelDataHelper.SetChannelType4Other(_channelType);
         }
 
         public static HTSConnectionHandler GetInstance(ILoggerFactory loggerFactory, IHttpClientFactory httpClientFactory)
@@ -154,6 +152,8 @@ namespace TVHeadEnd
             _channelType = config.ChannelType.Trim();
             _enableSubsMaudios = config.EnableSubsMaudios;
             _forceDeinterlace = config.ForceDeinterlace;
+
+            _channelDataHelper.SetChannelType4Other(_channelType);
 
             if (_priority < 0 || _priority > 4)
             {
