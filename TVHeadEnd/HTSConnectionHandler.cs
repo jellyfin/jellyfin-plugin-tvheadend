@@ -154,6 +154,7 @@ namespace TVHeadEnd
             _forceDeinterlace = config.ForceDeinterlace;
 
             _channelDataHelper.SetChannelType4Other(_channelType);
+            _channelDataHelper.SetIncludeUnnumberedChannels(config.IncludeUnnumberedChannels);
 
             if (_priority < 0 || _priority > 4)
             {

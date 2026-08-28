@@ -22,6 +22,7 @@ namespace TVHeadEnd.Configuration
         public bool HideRecordingsChannel { get; set; }
         public bool EnableSubsMaudios { get; set; }
         public bool ForceDeinterlace { get; set; }
+        public bool IncludeUnnumberedChannels { get; set; }
 
         public PluginConfiguration()
         {
@@ -39,6 +40,7 @@ namespace TVHeadEnd.Configuration
             HideRecordingsChannel = false;
             EnableSubsMaudios = false;
             ForceDeinterlace = false;
+            IncludeUnnumberedChannels = true;
         }
     }
 }

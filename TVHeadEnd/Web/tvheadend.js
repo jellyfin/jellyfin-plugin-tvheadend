@@ -18,6 +18,7 @@ export default function (view, params) {
             page.querySelector('#txtPrePadding').value = config.Pre_Padding || '0';
             page.querySelector('#txtPostPadding').value = config.Post_Padding || '0';
             page.querySelector('#selChannelType').value = config.ChannelType || 'Ignore';
+            page.querySelector('#chkIncludeUnnumberedChannels').checked = config.IncludeUnnumberedChannels !== false;
             page.querySelector('#chkHideRecordingsChannel').checked = config.HideRecordingsChannel || false;
             page.querySelector('#chkEnableSubsMaudios').checked = config.EnableSubsMaudios || false;
             page.querySelector('#chkForceDeinterlace').checked = config.ForceDeinterlace || false;
@@ -40,6 +41,7 @@ export default function (view, params) {
             config.Pre_Padding = form.querySelector('#txtPrePadding').value;
             config.Post_Padding = form.querySelector('#txtPostPadding').value;
             config.ChannelType = form.querySelector('#selChannelType').value;
+            config.IncludeUnnumberedChannels = form.querySelector('#chkIncludeUnnumberedChannels').checked;
             config.HideRecordingsChannel = form.querySelector('#chkHideRecordingsChannel').checked;
             config.EnableSubsMaudios = form.querySelector('#chkEnableSubsMaudios').checked;
             config.ForceDeinterlace = form.querySelector('#chkForceDeinterlace').checked;
