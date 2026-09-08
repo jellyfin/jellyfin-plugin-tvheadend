@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.LiveTv;
@@ -11,6 +12,7 @@ using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.MediaInfo;
 using Microsoft.Extensions.Logging;
+using TVHeadEnd.DataHelper;
 using TVHeadEnd.Helper;
 using TVHeadEnd.HTSP;
 using TVHeadEnd.HTSP_Responses;
@@ -19,7 +21,7 @@ using static TVHeadEnd.AccessTicketHandler.TicketType;
 
 namespace TVHeadEnd
 {
-    public class LiveTvService : ILiveTvService
+    public class LiveTvService : ILiveTvService, ISupportsNewTimerIds
     {
         private readonly IMediaEncoder _mediaEncoder;
 
@@ -154,24 +156,110 @@ namespace TVHeadEnd
 
         public async Task CreateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken)
         {
-            // Dummy method to avoid warnings
-            await Task.Factory.StartNew(() => 0, cancellationToken);
+            await CreateSeriesTimer(info, cancellationToken);
+        }
 
-            throw new NotImplementedException();
+        public Task<string> CreateSeriesTimer(SeriesTimerInfo info, CancellationToken cancellationToken)
+        {
+            return SaveSeriesTimerAsync(info, "addAutorecEntry", cancellationToken);
+        }
+
+        private async Task<string> SaveSeriesTimerAsync(SeriesTimerInfo info, string method, CancellationToken cancellationToken)
+        {
+            int timeOut = await WaitForInitialLoadTask(cancellationToken);
+            if (timeOut == -1 || cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogDebug("LiveTvService.SaveSeriesTimerAsync: call cancelled or timed out");
+                return null;
+            }
+
+            HTSMessage seriesTimerMessage = new HTSMessage();
+            seriesTimerMessage.Method = method;
+
+            if (method == "updateAutorecEntry")
+            {
+                seriesTimerMessage.putField("id", info.Id);
+            }
+
+            // TVHeadend treats an autorec title as a regular expression. Escaping it
+            // prevents punctuation in a programme title from changing what is matched.
+            seriesTimerMessage.putField("title", Regex.Escape(info.Name));
+            seriesTimerMessage.putField("name", info.Name);
+            if (!string.IsNullOrEmpty(info.SeriesId))
+            {
+                seriesTimerMessage.putField("serieslinkUri", info.SeriesId);
+            }
+
+            if (!info.RecordAnyChannel && !string.IsNullOrEmpty(info.ChannelId))
+            {
+                seriesTimerMessage.putField("channelId", Convert.ToInt32(info.ChannelId));
+            }
+
+            seriesTimerMessage.putField("startExtra", (long)(info.PrePaddingSeconds / 60));
+            seriesTimerMessage.putField("stopExtra", (long)(info.PostPaddingSeconds / 60));
+            seriesTimerMessage.putField("enabled", 1);
+            seriesTimerMessage.putField("priority", _htsConnectionHandler.GetPriority());
+            seriesTimerMessage.putField("configName", _htsConnectionHandler.GetProfile());
+            seriesTimerMessage.putField("daysOfWeek", AutorecDataHelper.getDaysOfWeekFromList(info.Days));
+            seriesTimerMessage.putField("dupDetect", info.RecordNewOnly ? 14 : 0);
+            seriesTimerMessage.putField("maxCount", info.KeepUpTo);
+
+            if (info.RecordAnyTime)
+            {
+                seriesTimerMessage.putField("start", -1);
+                seriesTimerMessage.putField("startWindow", -1);
+            }
+            else
+            {
+                seriesTimerMessage.putField("start", AutorecDataHelper.getMinutesFromMidnight(info.StartDate));
+                seriesTimerMessage.putField("startWindow", AutorecDataHelper.getMinutesFromMidnight(info.EndDate));
+            }
+
+            TaskWithTimeoutRunner<HTSMessage> twtr = new TaskWithTimeoutRunner<HTSMessage>(_timeout);
+            TaskWithTimeoutResult<HTSMessage> twtRes = await twtr.RunWithTimeout(Task.Factory.StartNew(() =>
+            {
+                LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
+                _htsConnectionHandler.SendMessage(seriesTimerMessage, lbrh);
+                _lastRecordingChange = DateTime.UtcNow;
+                return lbrh.getResponse();
+            }, cancellationToken));
+
+            if (twtRes.HasTimeout)
+            {
+                throw new TimeoutException("TVHeadend timed out while saving the series timer");
+            }
+
+            HTSMessage response = twtRes.Result;
+            if (response.getInt("success", 0) != 1)
+            {
+                string reason = response.getString("error", response.getString("noaccess", "Unknown TVHeadend error"));
+                throw new InvalidOperationException($"TVHeadend could not save the series timer: {reason}");
+            }
+
+            return response.getString("id", null);
         }
 
         public async Task CreateTimerAsync(TimerInfo info, CancellationToken cancellationToken)
+        {
+            await CreateTimer(info, cancellationToken);
+        }
+
+        public async Task<string> CreateTimer(TimerInfo info, CancellationToken cancellationToken)
         {
             int timeOut = await WaitForInitialLoadTask(cancellationToken);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
                 _logger.LogDebug("LiveTvService.CreateTimerAsync: call cancelled or timed out");
-                return;
+                return null;
             }
 
             HTSMessage createTimerMessage = new HTSMessage();
             createTimerMessage.Method = "addDvrEntry";
-            createTimerMessage.putField("channelId", info.ChannelId);
+            createTimerMessage.putField("channelId", Convert.ToInt32(info.ChannelId));
+            if (!string.IsNullOrEmpty(info.ProgramId))
+            {
+                createTimerMessage.putField("eventId", Convert.ToInt32(info.ProgramId));
+            }
             createTimerMessage.putField("start", DateTimeHelper.getUnixUTCTimeFromUtcDateTime(info.StartDate));
             createTimerMessage.putField("stop", DateTimeHelper.getUnixUTCTimeFromUtcDateTime(info.EndDate));
             createTimerMessage.putField("startExtra", (long)(info.PrePaddingSeconds / 60));
@@ -187,29 +275,23 @@ namespace TVHeadEnd
             {
                 LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
                 _htsConnectionHandler.SendMessage(createTimerMessage, lbrh);
+                _lastRecordingChange = DateTime.UtcNow;
                 return lbrh.getResponse();
             }, cancellationToken));
 
             if (twtRes.HasTimeout)
             {
-                _logger.LogError("LiveTvService.CreateTimerAsync: can't create timer because the timeout was reached");
+                throw new TimeoutException("TVHeadend timed out while creating the timer");
             }
-            else
+
+            HTSMessage createTimerResponse = twtRes.Result;
+            if (createTimerResponse.getInt("success", 0) != 1)
             {
-                HTSMessage createTimerResponse = twtRes.Result;
-                Boolean success = createTimerResponse.getInt("success", 0) == 1;
-                if (!success)
-                {
-                    if (createTimerResponse.containsField("error"))
-                    {
-                        _logger.LogError("LiveTvService.CreateTimerAsync: can't create timer: '{why}'", createTimerResponse.getString("error"));
-                    }
-                    else if (createTimerResponse.containsField("noaccess"))
-                    {
-                        _logger.LogError("LiveTvService.CreateTimerAsync: can't create timer: '{why}'", createTimerResponse.getString("noaccess"));
-                    }
-                }
+                string reason = createTimerResponse.getString("error", createTimerResponse.getString("noaccess", "Unknown TVHeadend error"));
+                throw new InvalidOperationException($"TVHeadend could not create the timer: {reason}");
             }
+
+            return createTimerResponse.getString("id", null);
         }
 
         public async Task DeleteRecordingAsync(string recordingId, CancellationToken cancellationToken)
@@ -515,8 +597,8 @@ namespace TVHeadEnd
             {
                 return new SeriesTimerInfo
                 {
-                    PostPaddingSeconds = Plugin.Instance.Configuration.Pre_Padding,
-                    PrePaddingSeconds = Plugin.Instance.Configuration.Post_Padding,
+                    PostPaddingSeconds = Plugin.Instance.Configuration.Post_Padding,
+                    PrePaddingSeconds = Plugin.Instance.Configuration.Pre_Padding,
                     RecordAnyChannel = true,
                     RecordAnyTime = true,
                     RecordNewOnly = false
@@ -606,10 +688,7 @@ namespace TVHeadEnd
 
         public async Task UpdateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken)
         {
-            await CancelSeriesTimerAsync(info.Id, cancellationToken);
-            _lastRecordingChange = DateTime.UtcNow;
-            // TODO add if method is implemented
-            // await CreateSeriesTimerAsync(info, cancellationToken);
+            await SaveSeriesTimerAsync(info, "updateAutorecEntry", cancellationToken);
         }
 
         public async Task UpdateTimerAsync(TimerInfo info, CancellationToken cancellationToken)
