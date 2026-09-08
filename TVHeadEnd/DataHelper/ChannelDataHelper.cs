@@ -17,6 +17,7 @@ namespace TVHeadEnd.DataHelper
         private readonly Dictionary<int, HTSMessage> _data;
         private readonly Dictionary<string, string> _piconData;
         private string _channelType4Other = "Ignore";
+        private bool _includeUnnumberedChannels = true;
 
         public ChannelDataHelper(ILogger<ChannelDataHelper> logger, TunerDataHelper tunerDataHelper)
         {
@@ -32,6 +33,11 @@ namespace TVHeadEnd.DataHelper
         public void SetChannelType4Other(string channelType4Other)
         {
             _channelType4Other = channelType4Other;
+        }
+
+        public void SetIncludeUnnumberedChannels(bool includeUnnumberedChannels)
+        {
+            _includeUnnumberedChannels = includeUnnumberedChannels;
         }
 
         public void Clean()
@@ -80,9 +86,15 @@ namespace TVHeadEnd.DataHelper
                     }
                     else
                     {
-                        if (message.containsField("channelNumber") && message.getInt("channelNumber") > 0) // use only channels with number > 0
+                        bool hasNumber = message.containsField("channelNumber") && message.getInt("channelNumber") > 0;
+                        if (hasNumber || _includeUnnumberedChannels)
                         {
                             _data.Add(channelID, message);
+                        }
+                        else
+                        {
+                            _logger.LogDebug("[TVHclient] ChannelDataHelper: ignoring channel '{name}' (channelId {id}) because it has no channel number",
+                                message.containsField("channelName") ? message.getString("channelName") : "", channelID);
                         }
                     }
                 }
@@ -155,7 +167,9 @@ namespace TVHeadEnd.DataHelper
                                 ci.Name = m.getString("channelName");
                             }
 
-                            if (m.containsField("channelNumber"))
+                            // TVHeadend reports 0 for channels without a number; leave Number
+                            // empty in that case so Jellyfin sorts them by name.
+                            if (m.containsField("channelNumber") && m.getInt("channelNumber") > 0)
                             {
                                 int channelNumber = m.getInt("channelNumber");
                                 ci.Number = "" + channelNumber;

@@ -42,6 +42,13 @@
                         <option>Ignore</option>
                     </select>
                 </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="chkIncludeUnnumberedChannels" />
+                        <span>Include channels without a channel number</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">TVHeadend reports 0 for channels that have no number assigned. When unchecked, such channels are ignored. Changing this requires a server restart.</div>
+                </div>
                 <div class="checkboxContainer">
                     <label>
                         <input is="emby-checkbox" type="checkbox" id="chkHideRecordingsChannel" />
