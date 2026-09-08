@@ -1,33 +1,33 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MediaBrowser.Controller.Channels;
-using MediaBrowser.Controller.Providers;
-using MediaBrowser.Model.Entities;
-using MediaBrowser.Model.Channels;
-using MediaBrowser.Model.MediaInfo;
-using MediaBrowser.Controller.LiveTv;
-using System.Linq;
 using MediaBrowser.Common.Extensions;
-using MediaBrowser.Model.Dto;
-using System.Globalization;
+using MediaBrowser.Controller.Channels;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.LiveTv;
+using MediaBrowser.Controller.Providers;
+using MediaBrowser.Model.Channels;
+using MediaBrowser.Model.Dto;
+using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.LiveTv;
+using MediaBrowser.Model.MediaInfo;
 using Microsoft.Extensions.Logging;
 using TVHeadEnd.HTSP;
-using TVHeadEnd.HTSP_Responses;
+using TVHeadEnd.HTSP.Responses;
 using TVHeadEnd.TimeoutHelper;
 
 namespace TVHeadEnd
 {
     public class RecordingsChannel : IChannel, ISupportsDelete, ISupportsLatestMedia, IHasFolderAttributes
     {
-        private HTSConnectionHandler _htsConnectionHandler;
-        private readonly TimeSpan TIMEOUT = TimeSpan.FromMinutes(5);
-
+        private readonly TimeSpan _timeout = TimeSpan.FromMinutes(5);
         private readonly ILogger<LiveTvService> _logger;
+        private readonly HTSConnectionHandler _htsConnectionHandler;
 
         public RecordingsChannel(ILoggerFactory loggerFactory, HTSConnectionHandler htsConnectionHandler)
         {
@@ -52,13 +52,11 @@ namespace TVHeadEnd
             }
         }
 
-        public string[] Attributes
-        {
-            get
-            {
-                return new[] { "Recordings" };
-            }
-        }
+        [SuppressMessage(
+            "Performance",
+            "CA1819:Properties should not return arrays",
+            Justification = "The array-typed property is mandated by MediaBrowser.Controller.Channels.IHasFolderAttributes.")]
+        public string[] Attributes => ["Recordings"];
 
         public string DataVersion
         {
@@ -92,7 +90,7 @@ namespace TVHeadEnd
 
             values.Add(Math.Floor(minute).ToString(CultureInfo.InvariantCulture));
 
-            values.Add(GetService()._lastRecordingChange.Ticks.ToString(CultureInfo.InvariantCulture));
+            values.Add(GetService().LastRecordingChange.Ticks.ToString(CultureInfo.InvariantCulture));
 
             return string.Join("-", values.ToArray());
         }
@@ -105,7 +103,7 @@ namespace TVHeadEnd
                  {
                       ChannelMediaContentType.Movie,
                       ChannelMediaContentType.Episode,
-                    ChannelMediaContentType.Clip
+                      ChannelMediaContentType.Clip
                  },
                 MediaTypes = new List<ChannelMediaType>
                   {
@@ -149,28 +147,30 @@ namespace TVHeadEnd
 
         private LiveTvService GetService()
         {
-            return _htsConnectionHandler.getLiveTvService();
+            return _htsConnectionHandler.GetLiveTvService()
+                ?? throw new InvalidOperationException("The TVHeadend LiveTvService has not been registered yet");
         }
 
         private Task<int> WaitForInitialLoadTask(CancellationToken cancellationToken)
         {
-            return Task.Factory.StartNew<int>(() => _htsConnectionHandler.WaitForInitialLoad(cancellationToken), cancellationToken);
+            return Task.Run(() => _htsConnectionHandler.WaitForInitialLoad(cancellationToken), cancellationToken);
         }
+
         public async Task<IEnumerable<MyRecordingInfo>> GetAllRecordingsAsync(CancellationToken cancellationToken)
         {
             // retrieve all 'Pending', 'Inprogress' and 'Completed' recordings
             // we don't deliver the 'Pending' recordings
 
-            int timeOut = await WaitForInitialLoadTask(cancellationToken);
+            int timeOut = await WaitForInitialLoadTask(cancellationToken).ConfigureAwait(false);
             if (timeOut == -1 || cancellationToken.IsCancellationRequested)
             {
                 _logger.LogDebug("[TVHclient] GetAllRecordingsAsync - Not initialized ");
                 return [];
             }
 
-            TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>> twtr = new TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>>(TIMEOUT);
+            TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>> twtr = new TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>>(_timeout);
             TaskWithTimeoutResult<IEnumerable<MyRecordingInfo>> twtRes = await
-                twtr.RunWithTimeout(_htsConnectionHandler.BuildDvrInfos(cancellationToken));
+                twtr.RunWithTimeout(_htsConnectionHandler.BuildDvrInfos(cancellationToken)).ConfigureAwait(false);
 
             if (twtRes.HasTimeout)
             {
@@ -208,7 +208,7 @@ namespace TVHeadEnd
             if (query.FolderId.StartsWith("series_", StringComparison.OrdinalIgnoreCase))
             {
                 var hash = query.FolderId.Split('_')[1];
-                return GetChannelItems(query, i => i.IsSeries && string.Equals(i.Name.GetMD5().ToString("N"), hash, StringComparison.Ordinal), cancellationToken);
+                return GetChannelItems(query, i => i.IsSeries && i.Name != null && string.Equals(i.Name.GetMD5().ToString("N"), hash, StringComparison.Ordinal), cancellationToken);
             }
 
             if (string.Equals(query.FolderId, "kids", StringComparison.OrdinalIgnoreCase))
@@ -260,7 +260,7 @@ namespace TVHeadEnd
 
         private ChannelItemInfo ConvertToChannelItem(MyRecordingInfo item)
         {
-            var path = buildRecordingPath(item.Id);
+            var path = BuildRecordingPath(item.Id ?? string.Empty);
 
             _logger.LogDebug("[TVHclient] ConvertToChannelItem - Creating ChannelItemInfo");
 
@@ -271,7 +271,7 @@ namespace TVHeadEnd
                 OfficialRating = item.OfficialRating,
                 CommunityRating = item.CommunityRating,
                 ContentType = item.IsMovie ? ChannelMediaContentType.Movie : (item.IsSeries ? ChannelMediaContentType.Episode : ChannelMediaContentType.Clip),
-                Genres = item.Genres,
+                Genres = [.. item.Genres],
                 ImageUrl = item.ImageUrl,
                 Id = item.Id,
                 MediaType = item.ChannelType == MediaBrowser.Model.LiveTv.ChannelType.TV ? ChannelMediaType.Video : ChannelMediaType.Audio,
@@ -305,24 +305,24 @@ namespace TVHeadEnd
                         }
                     }
                 },
-                //ParentIndexNumber = item.ParentIndexNumber,
+                // ParentIndexNumber = item.ParentIndexNumber,
                 PremiereDate = item.StartDate,
                 DateCreated = item.StartDate,
                 StartDate = item.StartDate,
                 EndDate = item.EndDate,
-                //ProductionYear = item.ProductionYear,
-                //Studios = item.Studios,
+                // ProductionYear = item.ProductionYear,
+                // Studios = item.Studios,
                 Type = ChannelItemType.Media,
                 DateModified = item.DateLastUpdated,
                 Overview = item.Overview,
-                //People = item.People
+                // People = item.People
                 Etag = item.Status.ToString()
             };
 
             return channelItem;
         }
 
-        private static string buildRecordingPath(string Id)
+        private static string BuildRecordingPath(string id)
         {
             var config = Plugin.Instance.Configuration;
             try
@@ -330,20 +330,21 @@ namespace TVHeadEnd
                 var tvhServerName = config.TVH_ServerName.Trim();
                 var httpPort = config.HTTP_Port;
                 var htspPort = config.HTSP_Port;
-                var webRoot = config.WebRoot;            
-                if (webRoot.EndsWith("/"))
+                var webRoot = config.WebRoot;
+                if (webRoot.EndsWith('/'))
                 {
                     webRoot = webRoot.Substring(0, webRoot.Length - 1);
                 }
+
                 var userName = config.Username.Trim();
                 var password = config.Password.Trim();
-                return "http://" + userName + ":" + password + "@" + tvhServerName + ":" + httpPort + webRoot + "/dvrfile/" + Id;
+                return "http://" + userName + ":" + password + "@" + tvhServerName + ":" + httpPort + webRoot + "/dvrfile/" + id;
             }
             catch (Exception)
             {
-
             }
-            return "";
+
+            return string.Empty;
         }
 
         private async Task<ChannelItemResult> GetRecordingGroups(InternalChannelItemQuery query, CancellationToken cancellationToken)
@@ -362,7 +363,7 @@ namespace TVHeadEnd
             {
                 Name = i.Key,
                 FolderType = ChannelFolderType.Container,
-                Id = "series_" + i.Key.GetMD5().ToString("N"),
+                Id = "series_" + (i.Key ?? string.Empty).GetMD5().ToString("N"),
                 Type = ChannelItemType.Folder,
                 ImageUrl = i.First().ImageUrl
             }));
@@ -437,203 +438,4 @@ namespace TVHeadEnd
             return result;
         }
     }
-    public class MyRecordingInfo
-    {
-        /// <summary>
-        /// Id of the recording.
-        /// </summary>
-        public string Id { get; set; }
-
-        /// <summary>
-        /// Gets or sets the series timer identifier.
-        /// </summary>
-        /// <value>The series timer identifier.</value>
-        public string SeriesTimerId { get; set; }
-
-        /// <summary>
-        /// Gets or sets the timer identifier.
-        /// </summary>
-        /// <value>The timer identifier.</value>
-        public string TimerId { get; set; }
-
-        /// <summary>
-        /// ChannelId of the recording.
-        /// </summary>
-        public string ChannelId { get; set; }
-
-        /// <summary>
-        /// Gets or sets the type of the channel.
-        /// </summary>
-        /// <value>The type of the channel.</value>
-        public ChannelType ChannelType { get; set; }
-
-        /// <summary>
-        /// Name of the recording.
-        /// </summary>
-        public string Name { get; set; }
-
-        /// <summary>
-        /// Gets or sets the path.
-        /// </summary>
-        /// <value>The path.</value>
-        public string Path { get; set; }
-
-        /// <summary>
-        /// Gets or sets the URL.
-        /// </summary>
-        /// <value>The URL.</value>
-        public string Url { get; set; }
-
-        /// <summary>
-        /// Gets or sets the overview.
-        /// </summary>
-        /// <value>The overview.</value>
-        public string Overview { get; set; }
-
-        /// <summary>
-        /// The start date of the recording, in UTC.
-        /// </summary>
-        public DateTime StartDate { get; set; }
-
-        /// <summary>
-        /// The end date of the recording, in UTC.
-        /// </summary>
-        public DateTime EndDate { get; set; }
-
-        /// <summary>
-        /// Gets or sets the program identifier.
-        /// </summary>
-        /// <value>The program identifier.</value>
-        public string ProgramId { get; set; }
-
-        /// <summary>
-        /// Gets or sets the status.
-        /// </summary>
-        /// <value>The status.</value>
-        public RecordingStatus Status { get; set; }
-
-        /// <summary>
-        /// Genre of the program.
-        /// </summary>
-        public List<string> Genres { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether this instance is repeat.
-        /// </summary>
-        /// <value><c>true</c> if this instance is repeat; otherwise, <c>false</c>.</value>
-        public bool IsRepeat { get; set; }
-
-        /// <summary>
-        /// Gets or sets the episode title.
-        /// </summary>
-        /// <value>The episode title.</value>
-        public string EpisodeTitle { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether this instance is hd.
-        /// </summary>
-        /// <value><c>true</c> if this instance is hd; otherwise, <c>false</c>.</value>
-        public bool? IsHD { get; set; }
-
-        /// <summary>
-        /// Gets or sets the audio.
-        /// </summary>
-        /// <value>The audio.</value>
-        public ProgramAudio? Audio { get; set; }
-
-        /// <summary>
-        /// Gets or sets the original air date.
-        /// </summary>
-        /// <value>The original air date.</value>
-        public DateTime? OriginalAirDate { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether this instance is movie.
-        /// </summary>
-        /// <value><c>true</c> if this instance is movie; otherwise, <c>false</c>.</value>
-        public bool IsMovie { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether this instance is sports.
-        /// </summary>
-        /// <value><c>true</c> if this instance is sports; otherwise, <c>false</c>.</value>
-        public bool IsSports { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether this instance is series.
-        /// </summary>
-        /// <value><c>true</c> if this instance is series; otherwise, <c>false</c>.</value>
-        public bool IsSeries { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether this instance is live.
-        /// </summary>
-        /// <value><c>true</c> if this instance is live; otherwise, <c>false</c>.</value>
-        public bool IsLive { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether this instance is news.
-        /// </summary>
-        /// <value><c>true</c> if this instance is news; otherwise, <c>false</c>.</value>
-        public bool IsNews { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether this instance is kids.
-        /// </summary>
-        /// <value><c>true</c> if this instance is kids; otherwise, <c>false</c>.</value>
-        public bool IsKids { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether this instance is premiere.
-        /// </summary>
-        /// <value><c>true</c> if this instance is premiere; otherwise, <c>false</c>.</value>
-        public bool IsPremiere { get; set; }
-
-        /// <summary>
-        /// Gets or sets the official rating.
-        /// </summary>
-        /// <value>The official rating.</value>
-        public string OfficialRating { get; set; }
-
-        /// <summary>
-        /// Gets or sets the community rating.
-        /// </summary>
-        /// <value>The community rating.</value>
-        public float? CommunityRating { get; set; }
-
-        /// <summary>
-        /// Supply the image path if it can be accessed directly from the file system
-        /// </summary>
-        /// <value>The image path.</value>
-        public string ImagePath { get; set; }
-
-        /// <summary>
-        /// Supply the image url if it can be downloaded
-        /// </summary>
-        /// <value>The image URL.</value>
-        public string ImageUrl { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether this instance has image.
-        /// </summary>
-        /// <value><c>null</c> if [has image] contains no value, <c>true</c> if [has image]; otherwise, <c>false</c>.</value>
-        public bool? HasImage { get; set; }
-        /// <summary>
-        /// Gets or sets the show identifier.
-        /// </summary>
-        /// <value>The show identifier.</value>
-        public string ShowId { get; set; }
-
-        /// <summary>
-        /// Gets or sets the date last updated.
-        /// </summary>
-        /// <value>The date last updated.</value>
-        public DateTime DateLastUpdated { get; set; }
-
-        public MyRecordingInfo()
-        {
-            Genres = new List<string>();
-        }
-    }
-
 }

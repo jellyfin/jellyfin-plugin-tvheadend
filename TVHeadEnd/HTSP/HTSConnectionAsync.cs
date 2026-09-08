@@ -6,48 +6,48 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using TVHeadEnd.Helper;
-using TVHeadEnd.HTSP_Responses;
+using TVHeadEnd.HTSP.Responses;
 
 namespace TVHeadEnd.HTSP
 {
-    public class HTSConnectionAsync
+    public sealed class HTSConnectionAsync : IDisposable
     {
         private const long BytesPerGiga = 1024 * 1024 * 1024;
 
-        private volatile Boolean _needsRestart = false;
-        private volatile Boolean _connected;
-        private volatile int _seq = 0;
-
         private readonly object _lock;
-        private readonly HTSConnectionListener _listener;
-        private readonly String _clientName;
-        private readonly String _clientVersion;
+        private readonly IHTSConnectionListener _listener;
+        private readonly string _clientName;
+        private readonly string _clientVersion;
         private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger<HTSConnectionAsync> _logger;
 
-        private int _serverProtocolVersion;
-        private string _servername;
-        private string _serverversion;
-        private string _diskSpace;
-
         private readonly ByteList _buffer;
-        private readonly SizeQueue<HTSMessage> _receivedMessagesQueue;
-        private readonly SizeQueue<HTSMessage> _messagesForSendQueue;
-        private readonly Dictionary<int, HTSResponseHandler> _responseHandlers;
+        private readonly BlockingBuffer<HTSMessage> _receivedMessagesQueue;
+        private readonly BlockingBuffer<HTSMessage> _messagesForSendQueue;
+        private readonly Dictionary<int, IHTSResponseHandler?> _responseHandlers;
 
-        private Thread _receiveHandlerThread;
-        private Thread _messageBuilderThread;
-        private Thread _sendingHandlerThread;
-        private Thread _messageDistributorThread;
+        private readonly CancellationTokenSource _receiveHandlerThreadTokenSource;
+        private readonly CancellationTokenSource _messageBuilderThreadTokenSource;
+        private readonly CancellationTokenSource _sendingHandlerThreadTokenSource;
+        private readonly CancellationTokenSource _messageDistributorThreadTokenSource;
 
-        private CancellationTokenSource _receiveHandlerThreadTokenSource;
-        private CancellationTokenSource _messageBuilderThreadTokenSource;
-        private CancellationTokenSource _sendingHandlerThreadTokenSource;
-        private CancellationTokenSource _messageDistributorThreadTokenSource;
+        private volatile bool _needsRestart;
+        private volatile bool _connected;
+        private volatile int _seq;
 
-        private Socket _socket = null;
+        private int _serverProtocolVersion;
+        private string? _servername;
+        private string? _serverversion;
+        private string? _diskSpace;
 
-        public HTSConnectionAsync(HTSConnectionListener listener, String clientName, String clientVersion, ILoggerFactory loggerFactory)
+        private Thread? _receiveHandlerThread;
+        private Thread? _messageBuilderThread;
+        private Thread? _sendingHandlerThread;
+        private Thread? _messageDistributorThread;
+
+        private Socket? _socket;
+
+        public HTSConnectionAsync(IHTSConnectionListener listener, string clientName, string clientVersion, ILoggerFactory loggerFactory)
         {
             _loggerFactory = loggerFactory;
             _logger = loggerFactory.CreateLogger<HTSConnectionAsync>();
@@ -60,9 +60,9 @@ namespace TVHeadEnd.HTSP
             _clientVersion = clientVersion;
 
             _buffer = new ByteList();
-            _receivedMessagesQueue = new SizeQueue<HTSMessage>(int.MaxValue);
-            _messagesForSendQueue = new SizeQueue<HTSMessage>(int.MaxValue);
-            _responseHandlers = new Dictionary<int, HTSResponseHandler>();
+            _receivedMessagesQueue = new BlockingBuffer<HTSMessage>(int.MaxValue);
+            _messagesForSendQueue = new BlockingBuffer<HTSMessage>(int.MaxValue);
+            _responseHandlers = new Dictionary<int, IHTSResponseHandler?>();
 
             _receiveHandlerThreadTokenSource = new CancellationTokenSource();
             _messageBuilderThreadTokenSource = new CancellationTokenSource();
@@ -70,7 +70,7 @@ namespace TVHeadEnd.HTSP
             _messageDistributorThreadTokenSource = new CancellationTokenSource();
         }
 
-        public void stop()
+        public void Stop()
         {
             try
             {
@@ -78,14 +78,17 @@ namespace TVHeadEnd.HTSP
                 {
                     _receiveHandlerThreadTokenSource.Cancel();
                 }
+
                 if (_messageBuilderThread != null && _messageBuilderThread.IsAlive)
                 {
                     _messageBuilderThreadTokenSource.Cancel();
                 }
+
                 if (_sendingHandlerThread != null && _sendingHandlerThread.IsAlive)
                 {
                     _sendingHandlerThreadTokenSource.Cancel();
                 }
+
                 if (_messageDistributorThread != null && _messageDistributorThread.IsAlive)
                 {
                     _messageDistributorThreadTokenSource.Cancel();
@@ -93,7 +96,6 @@ namespace TVHeadEnd.HTSP
             }
             catch
             {
-
             }
 
             try
@@ -105,103 +107,98 @@ namespace TVHeadEnd.HTSP
             }
             catch
             {
-
             }
+
             _needsRestart = true;
             _connected = false;
         }
 
-        public Boolean needsRestart()
+        public bool NeedsRestart()
         {
             return _needsRestart;
         }
 
-        public void open(String hostname, int port)
+        public void Open(string hostname, int port)
         {
             if (_connected)
             {
                 return;
             }
 
-            Monitor.Enter(_lock);
-            while (!_connected)
+            lock (_lock)
             {
-                try
+                while (!_connected)
                 {
-                    // Establish the remote endpoint for the socket.
-
-                    IPAddress ipAddress;
-                    if (!IPAddress.TryParse(hostname, out ipAddress))
+                    try
                     {
-                        // no IP --> ask DNS
-                        IPHostEntry ipHostInfo = Dns.GetHostEntry(hostname);
-                        ipAddress = ipHostInfo.AddressList[0];
+                        // Establish the remote endpoint for the socket.
+                        if (!IPAddress.TryParse(hostname, out IPAddress? ipAddress))
+                        {
+                            // no IP --> ask DNS
+                            IPHostEntry ipHostInfo = Dns.GetHostEntry(hostname);
+                            ipAddress = ipHostInfo.AddressList[0];
+                        }
+
+                        IPEndPoint remoteEP = new IPEndPoint(ipAddress, port);
+
+                        _logger.LogDebug(
+                            "[TVHclient] HTSConnectionAsync.Open: IPEndPoint = '{IP}'; AddressFamily = '{AF}'",
+                            remoteEP.ToString(),
+                            ipAddress.AddressFamily);
+
+                        // Create a TCP/IP socket.
+                        _socket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+
+                        // connect to server
+                        _socket.Connect(remoteEP);
+
+                        _connected = true;
+                        _logger.LogDebug("[TVHclient] HTSConnectionAsync.Open: socket connected");
                     }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "[TVHclient] HTSConnectionAsync.Open: exception caught");
 
-                    IPEndPoint remoteEP = new IPEndPoint(ipAddress, port);
-
-                    _logger.LogDebug("[TVHclient] HTSConnectionAsync.open: IPEndPoint = '{IP}'; AddressFamily = '{AF}'",
-                        remoteEP.ToString(), ipAddress.AddressFamily);
-
-                    // Create a TCP/IP  socket.
-                    _socket = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-
-                    // connect to server
-                    _socket.Connect(remoteEP);
-
-                    _connected = true;
-                    _logger.LogDebug("[TVHclient] HTSConnectionAsync.open: socket connected");
+                        Thread.Sleep(2000);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "[TVHclient] HTSConnectionAsync.open: exception caught");
 
-                    Thread.Sleep(2000);
-                }
+                _receiveHandlerThread = StartBackgroundThread(ReceiveHandler);
+                _messageBuilderThread = StartBackgroundThread(MessageBuilder);
+                _sendingHandlerThread = StartBackgroundThread(SendingHandler);
+                _messageDistributorThread = StartBackgroundThread(MessageDistributor);
             }
-
-            ThreadStart ReceiveHandlerRef = new ThreadStart(ReceiveHandler);
-            _receiveHandlerThread = new Thread(ReceiveHandlerRef);
-            _receiveHandlerThread.IsBackground = true;
-            _receiveHandlerThread.Start();
-
-            ThreadStart MessageBuilderRef = new ThreadStart(MessageBuilder);
-            _messageBuilderThread = new Thread(MessageBuilderRef);
-            _messageBuilderThread.IsBackground = true;
-            _messageBuilderThread.Start();
-
-            ThreadStart SendingHandlerRef = new ThreadStart(SendingHandler);
-            _sendingHandlerThread = new Thread(SendingHandlerRef);
-            _sendingHandlerThread.IsBackground = true;
-            _sendingHandlerThread.Start();
-
-            ThreadStart MessageDistributorRef = new ThreadStart(MessageDistributor);
-            _messageDistributorThread = new Thread(MessageDistributorRef);
-            _messageDistributorThread.IsBackground = true;
-            _messageDistributorThread.Start();
-
-            Monitor.Exit(_lock);
         }
 
-        public Boolean authenticate(String username, String password)
+        private static Thread StartBackgroundThread(ThreadStart threadStart)
+        {
+            Thread thread = new Thread(threadStart)
+            {
+                IsBackground = true
+            };
+            thread.Start();
+            return thread;
+        }
+
+        public bool Authenticate(string username, string password)
         {
             _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: start");
 
             HTSMessage helloMessage = new HTSMessage();
             helloMessage.Method = "hello";
-            helloMessage.putField("clientname", _clientName);
-            helloMessage.putField("clientversion", _clientVersion);
-            helloMessage.putField("htspversion", HTSMessage.HTSP_VERSION);
-            helloMessage.putField("username", username);
+            helloMessage.PutField("clientname", _clientName);
+            helloMessage.PutField("clientversion", _clientVersion);
+            helloMessage.PutField("htspversion", HTSMessage.HtspVersion);
+            helloMessage.PutField("username", username);
 
             LoopBackResponseHandler loopBackResponseHandler = new LoopBackResponseHandler();
-            sendMessage(helloMessage, loopBackResponseHandler);
-            HTSMessage helloResponse = loopBackResponseHandler.getResponse();
+            SendMessage(helloMessage, loopBackResponseHandler);
+            HTSMessage helloResponse = loopBackResponseHandler.GetResponse();
             if (helloResponse != null)
             {
-                if (helloResponse.containsField("htspversion"))
+                if (helloResponse.ContainsField("htspversion"))
                 {
-                    _serverProtocolVersion = helloResponse.getInt("htspversion");
+                    _serverProtocolVersion = helloResponse.GetInt("htspversion");
                 }
                 else
                 {
@@ -209,9 +206,9 @@ namespace TVHeadEnd.HTSP
                     _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: hello didn't include required field 'htspversion' - htsp incorrectly implemented by tvheadend");
                 }
 
-                if (helloResponse.containsField("servername"))
+                if (helloResponse.ContainsField("servername"))
                 {
-                    _servername = helloResponse.getString("servername");
+                    _servername = helloResponse.GetString("servername");
                 }
                 else
                 {
@@ -219,9 +216,9 @@ namespace TVHeadEnd.HTSP
                     _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: hello didn't include required field 'servername' - htsp incorrectly implemented by tvheadend");
                 }
 
-                if (helloResponse.containsField("serverversion"))
+                if (helloResponse.ContainsField("serverversion"))
                 {
-                    _serverversion = helloResponse.getString("serverversion");
+                    _serverversion = helloResponse.GetString("serverversion");
                 }
                 else
                 {
@@ -229,91 +226,93 @@ namespace TVHeadEnd.HTSP
                     _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: hello didn't include required field 'serverversion' - htsp incorrectly implemented by tvheadend");
                 }
 
-                byte[] salt = null;
-                if (helloResponse.containsField("challenge"))
+                byte[] salt;
+                if (helloResponse.ContainsField("challenge"))
                 {
-                    salt = helloResponse.getByteArray("challenge");
+                    salt = helloResponse.GetByteArray("challenge");
                 }
                 else
                 {
-                    salt = new byte[0];
+                    salt = Array.Empty<byte>();
                     _logger.LogInformation("[TVHclient] HTSConnectionAsync.authenticate: hello didn't include required field 'challenge' - htsp incorrectly implemented by tvheadend");
                 }
 
-                byte[] digest = SHA1helper.GenerateSaltedSHA1(password, salt);
+                byte[] digest = SHA1Helper.GenerateSaltedSHA1(password, salt);
                 HTSMessage authMessage = new HTSMessage();
                 authMessage.Method = "authenticate";
-                authMessage.putField("username", username);
-                authMessage.putField("digest", digest);
-                sendMessage(authMessage, loopBackResponseHandler);
-                HTSMessage authResponse = loopBackResponseHandler.getResponse();
+                authMessage.PutField("username", username);
+                authMessage.PutField("digest", digest);
+                SendMessage(authMessage, loopBackResponseHandler);
+                HTSMessage authResponse = loopBackResponseHandler.GetResponse();
                 if (authResponse != null)
                 {
-                    Boolean auth = authResponse.getInt("noaccess", 0) != 1;
+                    bool auth = authResponse.GetInt("noaccess", 0) != 1;
                     if (auth)
                     {
                         HTSMessage getDiskSpaceMessage = new HTSMessage();
                         getDiskSpaceMessage.Method = "getDiskSpace";
-                        sendMessage(getDiskSpaceMessage, loopBackResponseHandler);
-                        HTSMessage diskSpaceResponse = loopBackResponseHandler.getResponse();
+                        SendMessage(getDiskSpaceMessage, loopBackResponseHandler);
+                        HTSMessage diskSpaceResponse = loopBackResponseHandler.GetResponse();
                         if (diskSpaceResponse != null)
                         {
                             long freeDiskSpace = -1;
                             long totalDiskSpace = -1;
-                            if (diskSpaceResponse.containsField("freediskspace"))
+                            if (diskSpaceResponse.ContainsField("freediskspace"))
                             {
-                                freeDiskSpace = diskSpaceResponse.getLong("freediskspace") / BytesPerGiga;
+                                freeDiskSpace = diskSpaceResponse.GetLong("freediskspace") / BytesPerGiga;
                             }
                             else
                             {
                                 _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: getDiskSpace didn't include required field 'freediskspace' - htsp incorrectly implemented by tvheadend");
                             }
-                            if (diskSpaceResponse.containsField("totaldiskspace"))
+
+                            if (diskSpaceResponse.ContainsField("totaldiskspace"))
                             {
-                                totalDiskSpace = diskSpaceResponse.getLong("totaldiskspace") / BytesPerGiga;
+                                totalDiskSpace = diskSpaceResponse.GetLong("totaldiskspace") / BytesPerGiga;
                             }
-                             else
+                            else
                             {
                                 _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: getDiskSpace didn't include required field 'totaldiskspace' - htsp incorrectly implemented by tvheadend");
                             }
 
-                            _diskSpace = freeDiskSpace  + "GB / "  + totalDiskSpace + "GB";
+                            _diskSpace = freeDiskSpace + "GB / " + totalDiskSpace + "GB";
                         }
 
                         HTSMessage enableAsyncMetadataMessage = new HTSMessage();
                         enableAsyncMetadataMessage.Method = "enableAsyncMetadata";
-                        sendMessage(enableAsyncMetadataMessage, null);
+                        SendMessage(enableAsyncMetadataMessage, null);
                     }
 
-                    _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: authenticated = {m}", auth);
+                    _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: authenticated = {M}", auth);
                     return auth;
                 }
             }
+
             _logger.LogError("[TVHclient] HTSConnectionAsync.authenticate: no hello response");
             return false;
         }
 
-        public int getServerProtocolVersion()
+        public int GetServerProtocolVersion()
         {
             return _serverProtocolVersion;
         }
 
-        public string getServername()
+        public string? GetServername()
         {
             return _servername;
         }
 
-        public string getServerversion()
+        public string? GetServerversion()
         {
             return _serverversion;
         }
 
-        public string getDiskspace()
+        public string? GetDiskspace()
         {
             return _diskSpace;
         }
 
-        public void sendMessage(HTSMessage message, HTSResponseHandler responseHandler)
+        public void SendMessage(HTSMessage message, IHTSResponseHandler? responseHandler)
         {
             // loop the sequence number
             if (_seq == int.MaxValue)
@@ -326,34 +325,36 @@ namespace TVHeadEnd.HTSP
             }
 
             // housekeeping very old response handlers
-            if (_responseHandlers.ContainsKey(_seq))
-            {
-                _responseHandlers.Remove(_seq);
-            }
+            _responseHandlers.Remove(_seq);
 
-            message.putField("seq", _seq);
+            message.PutField("seq", _seq);
             _messagesForSendQueue.Enqueue(message);
             _responseHandlers.Add(_seq, responseHandler);
         }
 
         private void SendingHandler()
         {
-            Boolean threadOk = true;
+            bool threadOk = true;
             while (_connected && threadOk)
             {
                 if (_sendingHandlerThreadTokenSource.IsCancellationRequested)
                 {
                     return;
                 }
+
                 try
                 {
                     HTSMessage message = _messagesForSendQueue.Dequeue();
                     byte[] data2send = message.BuildBytes();
-                    int bytesSent = _socket.Send(data2send);
+                    int bytesSent = _socket!.Send(data2send);
                     if (bytesSent != data2send.Length)
                     {
-                        _logger.LogError("[TVHclient] HTSConnectionAsync.SendingHandler: sending data not completed\nBytes sent: {txbytes}\nMessage bytes: " +
-                            "{msgbytes}\nMessage: {msg}", bytesSent, data2send.Length, message.ToString());
+                        _logger.LogError(
+                            "[TVHclient] HTSConnectionAsync.SendingHandler: sending data not completed\nBytes sent: {Txbytes}\nMessage bytes: " +
+                            "{Msgbytes}\nMessage: {Msg}",
+                            bytesSent,
+                            data2send.Length,
+                            message.ToString());
                     }
                 }
                 catch (Exception ex)
@@ -362,7 +363,7 @@ namespace TVHeadEnd.HTSP
                     _logger.LogError(ex, "[TVHclient] HTSConnectionAsync.SendingHandler: exception caught");
                     if (_listener != null)
                     {
-                        _listener.onError(ex);
+                        _listener.OnError(ex);
                     }
                     else
                     {
@@ -374,7 +375,7 @@ namespace TVHeadEnd.HTSP
 
         private void ReceiveHandler()
         {
-            Boolean threadOk = true;
+            bool threadOk = true;
             byte[] readBuffer = new byte[1024];
             while (_connected && threadOk)
             {
@@ -382,22 +383,24 @@ namespace TVHeadEnd.HTSP
                 {
                     return;
                 }
+
                 try
                 {
-                    int bytesReceived = _socket.Receive(readBuffer);
+                    int bytesReceived = _socket!.Receive(readBuffer);
                     if (bytesReceived == 0)
                     {
-                        stop();
+                        Stop();
                         return;
                     }
-                    _buffer.appendCount(readBuffer, bytesReceived);
+
+                    _buffer.AppendCount(readBuffer, bytesReceived);
                 }
                 catch (Exception ex)
                 {
                     threadOk = false;
                     if (_listener != null)
                     {
-                        Task.Factory.StartNew(() => _listener.onError(ex));
+                        Task.Run(() => _listener.OnError(ex));
                     }
                     else
                     {
@@ -409,27 +412,31 @@ namespace TVHeadEnd.HTSP
 
         private void MessageBuilder()
         {
-            Boolean threadOk = true;
+            bool threadOk = true;
             while (_connected && threadOk)
             {
                 if (_messageBuilderThreadTokenSource.IsCancellationRequested)
                 {
                     return;
                 }
+
                 try
                 {
-                    byte[] lengthInformation = _buffer.getFromStart(4);
-                    long messageDataLength = HTSMessage.uIntToLong(lengthInformation[0], lengthInformation[1], lengthInformation[2], lengthInformation[3]);
-                    byte[] messageData = _buffer.extractFromStart((int)messageDataLength + 4); // should be long !!!
-                    HTSMessage response = HTSMessage.parse(messageData, _loggerFactory.CreateLogger<HTSMessage>());
-                    _receivedMessagesQueue.Enqueue(response);
+                    byte[] lengthInformation = _buffer.GetFromStart(4);
+                    long messageDataLength = HTSMessage.UIntToLong(lengthInformation[0], lengthInformation[1], lengthInformation[2], lengthInformation[3]);
+                    byte[] messageData = _buffer.ExtractFromStart((int)messageDataLength + 4); // should be long !!!
+                    HTSMessage? response = HTSMessage.Parse(messageData, _loggerFactory.CreateLogger<HTSMessage>());
+                    if (response != null)
+                    {
+                        _receivedMessagesQueue.Enqueue(response);
+                    }
                 }
                 catch (Exception ex)
                 {
                     threadOk = false;
                     if (_listener != null)
                     {
-                        _listener.onError(ex);
+                        _listener.OnError(ex);
                     }
                     else
                     {
@@ -441,31 +448,31 @@ namespace TVHeadEnd.HTSP
 
         private void MessageDistributor()
         {
-            Boolean threadOk = true;
+            bool threadOk = true;
             while (_connected && threadOk)
             {
                 if (_messageDistributorThreadTokenSource.IsCancellationRequested)
                 {
                     return;
                 }
+
                 try
                 {
                     HTSMessage response = _receivedMessagesQueue.Dequeue();
-                    if (response.containsField("seq"))
+                    if (response.ContainsField("seq"))
                     {
-                        int seqNo = response.getInt("seq");
-                        if (_responseHandlers.ContainsKey(seqNo))
+                        int seqNo = response.GetInt("seq");
+                        if (_responseHandlers.TryGetValue(seqNo, out var currHTSResponseHandler))
                         {
-                            HTSResponseHandler currHTSResponseHandler = _responseHandlers[seqNo];
                             if (currHTSResponseHandler != null)
                             {
                                 _responseHandlers.Remove(seqNo);
-                                currHTSResponseHandler.handleResponse(response);
+                                currHTSResponseHandler.HandleResponse(response);
                             }
                         }
                         else
                         {
-                            _logger.LogCritical("[TVHclient] HTSConnectionAsync.MessageDistributor: HTSResponseHandler for seq = '{seq}' not found", seqNo);
+                            _logger.LogCritical("[TVHclient] HTSConnectionAsync.MessageDistributor: HTSResponseHandler for seq = '{Seq}' not found", seqNo);
                         }
                     }
                     else
@@ -473,17 +480,16 @@ namespace TVHeadEnd.HTSP
                         // auto update messages
                         if (_listener != null)
                         {
-                            _listener.onMessage(response);
+                            _listener.OnMessage(response);
                         }
                     }
-
                 }
                 catch (Exception ex)
                 {
                     threadOk = false;
                     if (_listener != null)
                     {
-                        _listener.onError(ex);
+                        _listener.OnError(ex);
                     }
                     else
                     {
@@ -491,6 +497,17 @@ namespace TVHeadEnd.HTSP
                     }
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            Stop();
+
+            _receiveHandlerThreadTokenSource.Dispose();
+            _messageBuilderThreadTokenSource.Dispose();
+            _sendingHandlerThreadTokenSource.Dispose();
+            _messageDistributorThreadTokenSource.Dispose();
+            _socket?.Dispose();
         }
     }
 }

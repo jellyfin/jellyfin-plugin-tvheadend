@@ -20,7 +20,7 @@ namespace TVHeadEnd.DataHelper
             _data = new Dictionary<string, HTSMessage>();
         }
 
-        public void clean()
+        public void Clean()
         {
             lock (_data)
             {
@@ -28,19 +28,15 @@ namespace TVHeadEnd.DataHelper
             }
         }
 
-        public void addTunerInfo(HTSMessage tunerMessage)
+        public void AddTunerInfo(HTSMessage tunerMessage)
         {
             lock (_data)
             {
-                string channelID = "" + tunerMessage.getInt("channelId");
-                if (_data.ContainsKey(channelID))
-                {
-                    _data.Remove(channelID);
-                }
+                string channelID = string.Empty + tunerMessage.GetInt("channelId");
+                _data.Remove(channelID);
                 _data.Add(channelID, tunerMessage);
             }
         }
-
 
         /*
           <dump>
@@ -71,77 +67,77 @@ namespace TVHeadEnd.DataHelper
           </dump>
         */
 
-/*        public Task<List<LiveTvTunerInfo>> buildTunerInfos(CancellationToken cancellationToken)
-        {
-            return Task.Factory.StartNew<List<LiveTvTunerInfo>>(() =>
-            {
-                List<LiveTvTunerInfo> result = new List<LiveTvTunerInfo>();
-                lock (_data)
+        /*        public Task<List<LiveTvTunerInfo>> buildTunerInfos(CancellationToken cancellationToken)
                 {
-                    foreach (HTSMessage currMessage in _data.Values)
+                    return Task.Run(() =>
                     {
-                        if (cancellationToken.IsCancellationRequested)
+                        List<LiveTvTunerInfo> result = new List<LiveTvTunerInfo>();
+                        lock (_data)
                         {
-                            _logger.LogDebug("[TVHclient] TunerDataHelper.buildTunerInfos: cancel requst received - returning incomplete results");
-                            return result;
-                        }
-
-                        string channelId = "";
-                        if (currMessage.containsField("channelId"))
-                        {
-                            channelId = "" + currMessage.getInt("channelId");
-                        }
-
-                        string programName = "";
-                        if (currMessage.containsField("channelName"))
-                        {
-                            programName = currMessage.getString("channelName");
-                        }
-
-                        IList services = null;
-                        if (currMessage.containsField("services"))
-                        {
-                            services = currMessage.getList("services");
-                        }
-                        if (services != null)
-                        {
-                            foreach (HTSMessage currService in services)
+                            foreach (HTSMessage currMessage in _data.Values)
                             {
-                                string name = "";
-                                if (currService.containsField("name"))
+                                if (cancellationToken.IsCancellationRequested)
                                 {
-                                    name = currService.getString("name");
-                                }
-                                else
-                                {
-                                    continue;
-                                }
-                                string type = "";
-                                if (currService.containsField("type"))
-                                {
-                                    type = currService.getString("type");
+                                    _logger.LogDebug("[TVHclient] TunerDataHelper.buildTunerInfos: cancel requst received - returning incomplete results");
+                                    return result;
                                 }
 
-                                LiveTvTunerInfo ltti = new LiveTvTunerInfo();
-                                ltti.Id = name;
-                                ltti.Name = name;
-                                ltti.ProgramName = programName;
-                                ltti.SourceType = type;
-                                ltti.ChannelId = channelId;
-                                ltti.Status = LiveTvTunerStatus.Available;
+                                string channelId = "";
+                                if (currMessage.ContainsField("channelId"))
+                                {
+                                    channelId = "" + currMessage.GetInt("channelId");
+                                }
 
-                                ltti.CanReset = false; // currently not possible
+                                string programName = "";
+                                if (currMessage.ContainsField("channelName"))
+                                {
+                                    programName = currMessage.GetString("channelName");
+                                }
 
-                                //ltti.Clients // not available from TVheadend
-                                //ltti.RecordingId // not available from TVheadend
+                                IList services = null;
+                                if (currMessage.ContainsField("services"))
+                                {
+                                    services = currMessage.GetList("services");
+                                }
+                                if (services != null)
+                                {
+                                    foreach (HTSMessage currService in services)
+                                    {
+                                        string name = "";
+                                        if (currService.ContainsField("name"))
+                                        {
+                                            name = currService.GetString("name");
+                                        }
+                                        else
+                                        {
+                                            continue;
+                                        }
+                                        string type = "";
+                                        if (currService.ContainsField("type"))
+                                        {
+                                            type = currService.GetString("type");
+                                        }
 
-                                result.Add(ltti);
+                                        LiveTvTunerInfo ltti = new LiveTvTunerInfo();
+                                        ltti.Id = name;
+                                        ltti.Name = name;
+                                        ltti.ProgramName = programName;
+                                        ltti.SourceType = type;
+                                        ltti.ChannelId = channelId;
+                                        ltti.Status = LiveTvTunerStatus.Available;
+
+                                        ltti.CanReset = false; // currently not possible
+
+                                        //ltti.Clients // not available from TVheadend
+                                        //ltti.RecordingId // not available from TVheadend
+
+                                        result.Add(ltti);
+                                    }
+                                }
                             }
                         }
-                    }
-                }
-                return result;
-            });
-        }*/
+                        return result;
+                    });
+                }*/
     }
 }

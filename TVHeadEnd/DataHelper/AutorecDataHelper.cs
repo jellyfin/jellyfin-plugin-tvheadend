@@ -13,15 +13,13 @@ namespace TVHeadEnd.DataHelper
         private readonly ILogger<AutorecDataHelper> _logger;
         private readonly Dictionary<string, HTSMessage> _data;
 
-        private readonly DateTime _initialDateTimeUTC = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
         public AutorecDataHelper(ILogger<AutorecDataHelper> logger)
         {
             _logger = logger;
             _data = new Dictionary<string, HTSMessage>();
         }
 
-        public void clean()
+        public void Clean()
         {
             lock (_data)
             {
@@ -29,9 +27,15 @@ namespace TVHeadEnd.DataHelper
             }
         }
 
-        public void autorecEntryAdd(HTSMessage message)
+        public void AutorecEntryAdd(HTSMessage message)
         {
-            string id = message.getString("id");
+            string? id = message.GetString("id");
+            if (id == null)
+            {
+                _logger.LogDebug("[TVHclient] AutorecDataHelper: entry without an id - skipping");
+                return;
+            }
+
             lock (_data)
             {
                 if (_data.ContainsKey(id))
@@ -39,44 +43,58 @@ namespace TVHeadEnd.DataHelper
                     _logger.LogDebug("[TVHclient] AutorecDataHelper.autorecEntryAdd: id already in database - skipping");
                     return;
                 }
+
                 _data.Add(id, message);
             }
         }
 
-        public void autorecEntryUpdate(HTSMessage message)
+        public void AutorecEntryUpdate(HTSMessage message)
         {
-            string id = message.getString("id");
+            string? id = message.GetString("id");
+            if (id == null)
+            {
+                _logger.LogDebug("[TVHclient] AutorecDataHelper: entry without an id - skipping");
+                return;
+            }
+
             lock (_data)
             {
-                HTSMessage oldMessage = _data[id];
-                if (oldMessage == null)
+                if (!_data.TryGetValue(id, out HTSMessage? oldMessage) || oldMessage == null)
                 {
                     _logger.LogDebug("[TVHclient] AutorecDataHelper.autorecEntryAdd: id not in database - skipping");
                     return;
                 }
+
                 foreach (KeyValuePair<string, object> entry in message)
                 {
-                    if (oldMessage.containsField(entry.Key))
+                    if (oldMessage.ContainsField(entry.Key))
                     {
-                        oldMessage.removeField(entry.Key);
+                        oldMessage.RemoveField(entry.Key);
                     }
-                    oldMessage.putField(entry.Key, entry.Value);
+
+                    oldMessage.PutField(entry.Key, entry.Value);
                 }
             }
         }
 
-        public void autorecEntryDelete(HTSMessage message)
+        public void AutorecEntryDelete(HTSMessage message)
         {
-            string id = message.getString("id");
+            string? id = message.GetString("id");
+            if (id == null)
+            {
+                _logger.LogDebug("[TVHclient] AutorecDataHelper: entry without an id - skipping");
+                return;
+            }
+
             lock (_data)
             {
                 _data.Remove(id);
             }
         }
 
-        public Task<IEnumerable<SeriesTimerInfo>> buildAutorecInfos(CancellationToken cancellationToken)
+        public Task<IEnumerable<SeriesTimerInfo>> BuildAutorecInfos(CancellationToken cancellationToken)
         {
-            return Task.Factory.StartNew<IEnumerable<SeriesTimerInfo>>(() =>
+            return Task.Run<IEnumerable<SeriesTimerInfo>>(() =>
             {
                 lock (_data)
                 {
@@ -95,9 +113,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("id"))
+                            if (m.ContainsField("id"))
                             {
-                                sti.Id = m.getString("id");
+                                sti.Id = m.GetString("id");
                             }
                         }
                         catch (InvalidCastException)
@@ -106,10 +124,10 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("daysOfWeek"))
+                            if (m.ContainsField("daysOfWeek"))
                             {
-                                int daysOfWeek = m.getInt("daysOfWeek");
-                                sti.Days = getDayOfWeekListFromInt(daysOfWeek);
+                                int daysOfWeek = m.GetInt("daysOfWeek");
+                                sti.Days = GetDayOfWeekListFromInt(daysOfWeek);
                             }
                         }
                         catch (InvalidCastException)
@@ -120,13 +138,13 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("retention"))
+                            if (m.ContainsField("retention"))
                             {
-                                int retentionInDays = m.getInt("retention");
+                                int retentionInDays = m.GetInt("retention");
 
                                 if (DateTime.MaxValue.AddDays(-retentionInDays) < DateTime.Now)
                                 {
-                                    _logger.LogError("[TVHclient] AutorecDataHelper.buildAutorecInfos: change during 'EndDate' calculation: set retention value from '{days}' to '365' days", retentionInDays);
+                                    _logger.LogError("[TVHclient] AutorecDataHelper.buildAutorecInfos: change during 'EndDate' calculation: set retention value from '{Days}' to '365' days", retentionInDays);
                                     sti.EndDate = DateTime.Now.AddDays(365).ToUniversalTime();
                                 }
                                 else
@@ -137,14 +155,14 @@ namespace TVHeadEnd.DataHelper
                         }
                         catch (Exception e)
                         {
-                            _logger.LogError(e, "[TVHclient] AutorecDataHelper.buildAutorecInfos: exception during 'EndDate' calculation. HTSMessage: {m}", m.ToString());
+                            _logger.LogError(e, "[TVHclient] AutorecDataHelper.buildAutorecInfos: exception during 'EndDate' calculation. HTSMessage: {M}", m.ToString());
                         }
 
                         try
                         {
-                            if (m.containsField("channel"))
+                            if (m.ContainsField("channel"))
                             {
-                                sti.ChannelId = "" + m.getInt("channel");
+                                sti.ChannelId = string.Empty + m.GetInt("channel");
                             }
                         }
                         catch (InvalidCastException)
@@ -153,9 +171,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("startExtra"))
+                            if (m.ContainsField("startExtra"))
                             {
-                                sti.PrePaddingSeconds = (int)m.getLong("startExtra") * 60;
+                                sti.PrePaddingSeconds = (int)m.GetLong("startExtra") * 60;
                                 sti.IsPrePaddingRequired = true;
                             }
                         }
@@ -165,9 +183,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("stopExtra"))
+                            if (m.ContainsField("stopExtra"))
                             {
-                                sti.PostPaddingSeconds = (int)m.getLong("stopExtra") * 60;
+                                sti.PostPaddingSeconds = (int)m.GetLong("stopExtra") * 60;
                                 sti.IsPostPaddingRequired = true;
                             }
                         }
@@ -177,9 +195,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("title"))
+                            if (m.ContainsField("title"))
                             {
-                                sti.Name = m.getString("title");
+                                sti.Name = m.GetString("title");
                             }
                         }
                         catch (InvalidCastException)
@@ -188,9 +206,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("description"))
+                            if (m.ContainsField("description"))
                             {
-                                sti.Overview = m.getString("description");
+                                sti.Overview = m.GetString("description");
                             }
                         }
                         catch (InvalidCastException)
@@ -199,9 +217,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("priority"))
+                            if (m.ContainsField("priority"))
                             {
-                                sti.Priority = m.getInt("priority");
+                                sti.Priority = m.GetInt("priority");
                             }
                         }
                         catch (InvalidCastException)
@@ -210,9 +228,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("title"))
+                            if (m.ContainsField("title"))
                             {
-                                sti.SeriesId = m.getString("title");
+                                sti.SeriesId = m.GetString("title");
                             }
                         }
                         catch (InvalidCastException)
@@ -234,41 +252,48 @@ namespace TVHeadEnd.DataHelper
             });
         }
 
-        private List<DayOfWeek> getDayOfWeekListFromInt(int daysOfWeek)
+        private List<DayOfWeek> GetDayOfWeekListFromInt(int daysOfWeek)
         {
             List<DayOfWeek> result = new List<DayOfWeek>();
             if ((daysOfWeek & 0x01) != 0)
             {
                 result.Add(DayOfWeek.Monday);
             }
+
             if ((daysOfWeek & 0x02) != 0)
             {
                 result.Add(DayOfWeek.Tuesday);
             }
+
             if ((daysOfWeek & 0x04) != 0)
             {
                 result.Add(DayOfWeek.Wednesday);
             }
+
             if ((daysOfWeek & 0x08) != 0)
             {
                 result.Add(DayOfWeek.Thursday);
             }
+
             if ((daysOfWeek & 0x10) != 0)
             {
                 result.Add(DayOfWeek.Friday);
             }
+
             if ((daysOfWeek & 0x20) != 0)
             {
                 result.Add(DayOfWeek.Saturday);
             }
+
             if ((daysOfWeek & 0x40) != 0)
             {
                 result.Add(DayOfWeek.Sunday);
             }
+
             return result;
         }
 
-        public static int getDaysOfWeekFromList(List<DayOfWeek> days)
+        public static int GetDaysOfWeekFromList(IReadOnlyList<DayOfWeek> days)
         {
             int result = 0;
             foreach (DayOfWeek currDay in days)
@@ -298,10 +323,11 @@ namespace TVHeadEnd.DataHelper
                         break;
                 }
             }
+
             return result;
         }
 
-        public static int getMinutesFromMidnight(DateTime time)
+        public static int GetMinutesFromMidnight(DateTime time)
         {
             DateTime utcTime = time.ToUniversalTime();
             int hours = utcTime.Hour;

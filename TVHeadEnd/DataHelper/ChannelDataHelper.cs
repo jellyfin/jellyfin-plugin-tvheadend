@@ -13,12 +13,12 @@ namespace TVHeadEnd.DataHelper
     public class ChannelDataHelper
     {
         private readonly ILogger<ChannelDataHelper> _logger;
-        private readonly TunerDataHelper _tunerDataHelper;
+        private readonly TunerDataHelper? _tunerDataHelper;
         private readonly Dictionary<int, HTSMessage> _data;
         private readonly Dictionary<string, string> _piconData;
         private string _channelType4Other = "Ignore";
 
-        public ChannelDataHelper(ILogger<ChannelDataHelper> logger, TunerDataHelper tunerDataHelper)
+        public ChannelDataHelper(ILogger<ChannelDataHelper> logger, TunerDataHelper? tunerDataHelper)
         {
             _logger = logger;
             _tunerDataHelper = tunerDataHelper;
@@ -27,11 +27,13 @@ namespace TVHeadEnd.DataHelper
             _piconData = new Dictionary<string, string>();
         }
 
-        public ChannelDataHelper(ILogger<ChannelDataHelper> logger) : this(logger, null) {}
-
-        public void SetChannelType4Other(string channelType4Other)
+        public ChannelDataHelper(ILogger<ChannelDataHelper> logger) : this(logger, null)
         {
-            _channelType4Other = channelType4Other;
+        }
+
+        public void SetChannelType4Other(string? channelType4Other)
+        {
+            _channelType4Other = channelType4Other ?? "Ignore";
         }
 
         public void Clean()
@@ -41,7 +43,7 @@ namespace TVHeadEnd.DataHelper
                 _data.Clear();
                 if (_tunerDataHelper != null)
                 {
-                    _tunerDataHelper.clean();
+                    _tunerDataHelper.Clean();
                 }
             }
         }
@@ -51,36 +53,36 @@ namespace TVHeadEnd.DataHelper
             if (_tunerDataHelper != null)
             {
                 // TVHeadend don't send the information we need
-                // _tunerDataHelper.addTunerInfo(message);
+                // _tunerDataHelper.AddTunerInfo(message);
             }
 
             lock (_data)
             {
                 try
                 {
-                    int channelID = message.getInt("channelId");
-                    if (_data.ContainsKey(channelID))
+                    int channelID = message.GetInt("channelId");
+                    if (_data.TryGetValue(channelID, out var storedMessage))
                     {
-                        HTSMessage storedMessage = _data[channelID];
                         if (storedMessage != null)
                         {
                             foreach (KeyValuePair<string, object> entry in message)
                             {
-                                if (storedMessage.containsField(entry.Key))
+                                if (storedMessage.ContainsField(entry.Key))
                                 {
-                                    storedMessage.removeField(entry.Key);
+                                    storedMessage.RemoveField(entry.Key);
                                 }
-                                storedMessage.putField(entry.Key, entry.Value);
+
+                                storedMessage.PutField(entry.Key, entry.Value);
                             }
                         }
                         else
                         {
-                            _logger.LogError("[TVHclient] ChannelDataHelper: updated data for channelID '{id}' but no initial data found", channelID);
+                            _logger.LogError("[TVHclient] ChannelDataHelper: updated data for channelID '{Id}' but no initial data found", channelID);
                         }
                     }
                     else
                     {
-                        if (message.containsField("channelNumber") && message.getInt("channelNumber") > 0) // use only channels with number > 0
+                        if (message.ContainsField("channelNumber") && message.GetInt("channelNumber") > 0) // use only channels with number > 0
                         {
                             _data.Add(channelID, message);
                         }
@@ -88,24 +90,20 @@ namespace TVHeadEnd.DataHelper
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "[TVHclient] ChannelDataHelper.Add: exception caught. HTSMessage: {m} ", message);
+                    _logger.LogError(ex, "[TVHclient] ChannelDataHelper.Add: exception caught. HTSMessage: {M} ", message);
                 }
             }
         }
 
-        public string GetChannelIcon4ChannelId(string channelId)
+        public string? GetChannelIcon4ChannelId(string channelId)
         {
-            string result;
-            if (_piconData.TryGetValue(channelId, out result))
-            {
-                return result;
-            }
+            _piconData.TryGetValue(channelId, out string? result);
             return result;
         }
 
         public Task<IEnumerable<ChannelInfo>> BuildChannelInfos(CancellationToken cancellationToken)
         {
-            return Task.Factory.StartNew<IEnumerable<ChannelInfo>>(() =>
+            return Task.Run<IEnumerable<ChannelInfo>>(() =>
             {
                 lock (_data)
                 {
@@ -123,59 +121,57 @@ namespace TVHeadEnd.DataHelper
                         try
                         {
                             ChannelInfo ci = new ChannelInfo();
-                            ci.Id = "" + entry.Key;
+                            ci.Id = string.Empty + entry.Key;
 
-                            ci.ImagePath = "";
+                            ci.ImagePath = string.Empty;
 
-                            if (m.containsField("channelIcon"))
+                            if (m.ContainsField("channelIcon"))
                             {
-                                string channelIcon = m.getString("channelIcon");
-                                Uri uriResult;
-                                bool uriCheckResult = Uri.TryCreate(channelIcon, UriKind.Absolute, out uriResult) && uriResult.Scheme == Uri.UriSchemeHttp;
+                                string? channelIcon = m.GetString("channelIcon");
+                                bool uriCheckResult = Uri.TryCreate(channelIcon, UriKind.Absolute, out Uri? uriResult) && uriResult.Scheme == Uri.UriSchemeHttp;
                                 if (uriCheckResult)
                                 {
                                     ci.ImageUrl = channelIcon;
                                 }
-                                else
+                                else if (channelIcon != null)
                                 {
                                     ci.HasImage = true;
-                                    if(!_piconData.ContainsKey(ci.Id))
-                                    {
-                                        _piconData.Add(ci.Id, channelIcon);
-                                    }
+                                    _piconData.TryAdd(ci.Id, channelIcon);
                                 }
                             }
-                            if (m.containsField("channelName"))
+
+                            if (m.ContainsField("channelName"))
                             {
-                                string name = m.getString("channelName");
+                                string? name = m.GetString("channelName");
                                 if (string.IsNullOrEmpty(name))
                                 {
                                     continue;
                                 }
-                                ci.Name = m.getString("channelName");
+
+                                ci.Name = m.GetString("channelName");
                             }
 
-                            if (m.containsField("channelNumber"))
+                            if (m.ContainsField("channelNumber"))
                             {
-                                int channelNumber = m.getInt("channelNumber");
-                                ci.Number = "" + channelNumber;
-                                if (m.containsField("channelNumberMinor"))
+                                int channelNumber = m.GetInt("channelNumber");
+                                ci.Number = string.Empty + channelNumber;
+                                if (m.ContainsField("channelNumberMinor"))
                                 {
-                                    int channelNumberMinor = m.getInt("channelNumberMinor");
+                                    int channelNumberMinor = m.GetInt("channelNumberMinor");
                                     ci.Number = ci.Number + "." + channelNumberMinor;
                                 }
                             }
 
-                            Boolean serviceFound = false;
-                            if (m.containsField("services"))
+                            bool serviceFound = false;
+                            if (m.ContainsField("services"))
                             {
-                                IList tunerInfoList = m.getList("services");
+                                IList? tunerInfoList = m.GetList("services");
                                 if (tunerInfoList != null && tunerInfoList.Count > 0)
                                 {
-                                    HTSMessage firstServiceInList = (HTSMessage)tunerInfoList[0];
-                                    if (firstServiceInList.containsField("type"))
+                                    HTSMessage? firstServiceInList = tunerInfoList[0] as HTSMessage;
+                                    if (firstServiceInList != null && firstServiceInList.ContainsField("type"))
                                     {
-                                        string type = firstServiceInList.getString("type").ToLower();
+                                        string? type = firstServiceInList.GetString("type")?.ToLowerInvariant();
                                         switch (type)
                                         {
                                             case "radio":
@@ -191,7 +187,7 @@ namespace TVHeadEnd.DataHelper
                                                 serviceFound = true;
                                                 break;
                                             case "other":
-                                                switch (_channelType4Other.ToLower())
+                                                switch (_channelType4Other.ToLowerInvariant())
                                                 {
                                                     case "tv":
                                                         _logger.LogDebug("[TVHclient] ChannelDataHelper: map service tag 'Other' to 'TV'");
@@ -207,29 +203,32 @@ namespace TVHeadEnd.DataHelper
                                                         _logger.LogDebug("[TVHclient] ChannelDataHelper: don't map service tag 'Other' - will be ignored");
                                                         break;
                                                 }
+
                                                 break;
                                             default:
-                                                _logger.LogDebug("[TVHclient] ChannelDataHelper: unkown service tag '{tag}' - will be ignored.", type);
+                                                _logger.LogDebug("[TVHclient] ChannelDataHelper: unkown service tag '{Tag}' - will be ignored.", type);
                                                 break;
                                         }
                                     }
                                 }
                             }
+
                             if (!serviceFound)
                             {
-                                _logger.LogDebug("[TVHclient] ChannelDataHelper: unable to detect service-type (tvheadend tag) from service list. HTSMessage: {m}", m.ToString());
+                                _logger.LogDebug("[TVHclient] ChannelDataHelper: unable to detect service-type (tvheadend tag) from service list. HTSMessage: {M}", m.ToString());
                                 continue;
                             }
 
-                            _logger.LogDebug("[TVHclient] ChannelDataHelper: adding channel: {m}", ci.Name);
+                            _logger.LogDebug("[TVHclient] ChannelDataHelper: adding channel: {M}", ci.Name);
 
                             result.Add(ci);
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "[TVHclient] ChannelDataHelper.BuildChannelInfos: exception caught. HTSMessage: {m}", m.ToString());
+                            _logger.LogError(ex, "[TVHclient] ChannelDataHelper.BuildChannelInfos: exception caught. HTSMessage: {M}", m.ToString());
                         }
                     }
+
                     return result;
                 }
             });

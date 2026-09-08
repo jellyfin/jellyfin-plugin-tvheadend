@@ -1,33 +1,48 @@
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using TVHeadEnd.Helper;
 
 namespace TVHeadEnd.HTSP
 {
     public class HTSMessage
     {
-        public const long HTSP_VERSION = 20;
-        private const byte HMF_MAP = 1;
-        private const byte HMF_S64 = 2;
-        private const byte HMF_STR = 3;
-        private const byte HMF_BIN = 4;
-        private const byte HMF_LIST = 5;
+        public const long HtspVersion = 20;
+        private const byte HmfMap = 1;
+        private const byte HmfS64 = 2;
+        private const byte HmfStr = 3;
+        private const byte HmfBin = 4;
+        private const byte HmfList = 5;
 
         private readonly Dictionary<string, object> _dict;
-        private ILogger<HTSMessage> _logger = null;
-        private byte[] _data = null;
+        private ILogger<HTSMessage>? _logger;
+        private byte[]? _data;
 
         public HTSMessage()
         {
             _dict = new Dictionary<string, object>();
         }
 
-        public void putField(string name, object value)
+        public string Method
+        {
+            get
+            {
+                return GetString("method", string.Empty) ?? string.Empty;
+            }
+
+            set
+            {
+                _dict["method"] = value;
+                _data = null;
+            }
+        }
+
+        public void PutField(string name, object value)
         {
             if (value != null)
             {
@@ -36,7 +51,7 @@ namespace TVHeadEnd.HTSP
             }
         }
 
-        public void removeField(string name)
+        public void RemoveField(string name)
         {
             _dict.Remove(name);
             _data = null;
@@ -47,91 +62,83 @@ namespace TVHeadEnd.HTSP
             return _dict.GetEnumerator();
         }
 
-        public string Method
-        {
-            set
-            {
-                _dict["method"] = value;
-                _data = null;
-            }
-            get
-            {
-                return getString("method", "");
-            }
-        }
-
-
-        public bool containsField(string name)
+        public bool ContainsField(string name)
         {
             return _dict.ContainsKey(name);
         }
 
-        public System.Numerics.BigInteger getBigInteger(string name)
+        public System.Numerics.BigInteger GetBigInteger(string name)
         {
             try
             {
                 return (System.Numerics.BigInteger)_dict[name];
             }
-            catch(InvalidCastException)
+            catch (InvalidCastException)
             {
-                _logger.LogCritical("[TVHclient] Caught InvalidCastException for field name '{name}'. Expected 'System.Numerics.BigInteger' but got '{type}'",
-                    name, _dict[name].GetType());
+                _logger?.LogCritical(
+                    "[TVHclient] Caught InvalidCastException for field name '{Name}'. Expected 'System.Numerics.BigInteger' but got '{Type}'",
+                    name,
+                    _dict[name].GetType());
                 throw;
             }
         }
 
-        public long getLong(string name)
+        public long GetLong(string name)
         {
-            return (long)getBigInteger(name);
+            return (long)GetBigInteger(name);
         }
 
-        public long getLong(string name, long std)
+        public long GetLong(string name, long std)
         {
-            if (!containsField(name))
+            if (!ContainsField(name))
             {
                 return std;
             }
-            return getLong(name);
+
+            return GetLong(name);
         }
 
-        public int getInt(string name)
+        public int GetInt(string name)
         {
-            return (int)getBigInteger(name);
+            return (int)GetBigInteger(name);
         }
 
-        public int getInt(string name, int std)
+        public int GetInt(string name, int std)
         {
-            if (!containsField(name))
+            if (!ContainsField(name))
             {
                 return std;
             }
-            return getInt(name);
+
+            return GetInt(name);
         }
 
-        public string getString(string name, string std)
+        public string? GetString(string name, string? std)
         {
-            if (!containsField(name))
+            if (!ContainsField(name))
             {
                 return std;
             }
-            return getString(name);
+
+            return GetString(name);
         }
 
-        public string getString(string name)
+        public string? GetString(string name)
         {
             object obj = _dict[name];
             if (obj == null)
             {
                 return null;
             }
+
             return obj.ToString();
         }
 
-        public IList<long?> getLongList(string name)
+        public IList<long?> GetLongList(string name)
         {
             List<long?> list = new List<long?>();
 
-            if (!containsField(name))
+            if (!ContainsField(name))
             {
                 return list;
             }
@@ -147,21 +154,21 @@ namespace TVHeadEnd.HTSP
             return list;
         }
 
-        internal IList<long?> getLongList(string name, IList<long?> std)
+        internal IList<long?> GetLongList(string name, IList<long?> std)
         {
-            if (!containsField(name))
+            if (!ContainsField(name))
             {
                 return std;
             }
 
-            return getLongList(name);
+            return GetLongList(name);
         }
 
-        public IList<int?> getIntList(string name)
+        public IList<int?> GetIntList(string name)
         {
             List<int?> list = new List<int?>();
 
-            if (!containsField(name))
+            if (!ContainsField(name))
             {
                 return list;
             }
@@ -177,37 +184,37 @@ namespace TVHeadEnd.HTSP
             return list;
         }
 
-        internal IList<int?> getIntList(string name, IList<int?> std)
+        internal IList<int?> GetIntList(string name, IList<int?> std)
         {
-            if (!containsField(name))
+            if (!ContainsField(name))
             {
                 return std;
             }
 
-            return getIntList(name);
+            return GetIntList(name);
         }
 
-        public IList getList(string name)
+        public IList GetList(string name)
         {
             return (IList)_dict[name];
         }
 
-        public byte[] getByteArray(string name)
+        public byte[] GetByteArray(string name)
         {
             return (byte[])_dict[name];
         }
 
         public byte[] BuildBytes()
         {
-            if(_data != null)
+            if (_data != null)
             {
                 return _data;
             }
 
-            byte[] buf = new byte[0];
+            byte[] buf = Array.Empty<byte>();
 
             // calc data
-            byte[] data = serializeBinary(_dict);
+            byte[] data = SerializeBinary(_dict);
 
             // calc length
             int len = data.Length;
@@ -218,7 +225,7 @@ namespace TVHeadEnd.HTSP
             buf = buf.Concat(tmpByte).ToArray();
             tmpByte[0] = unchecked((byte)((len >> 8) & 0xFF));
             buf = buf.Concat(tmpByte).ToArray();
-            tmpByte[0] = unchecked((byte)((len) & 0xFF));
+            tmpByte[0] = unchecked((byte)(len & 0xFF));
             buf = buf.Concat(tmpByte).ToArray();
 
             // append data
@@ -232,12 +239,12 @@ namespace TVHeadEnd.HTSP
             StringBuilder sb = new StringBuilder();
             sb.Append("\nHTSMessage:\n");
             sb.Append("  <dump>\n");
-            sb.Append(getValueString(_dict, "    "));
+            sb.Append(GetValueString(_dict, "    "));
             sb.Append("  </dump>\n\n");
             return sb.ToString();
         }
 
-        private string getValueString(object value, string pad)
+        private string GetValueString(object? value, string pad)
         {
             if (value is byte[])
             {
@@ -246,9 +253,10 @@ namespace TVHeadEnd.HTSP
                 for (int ii = 0; ii < bVal.Length; ii++)
                 {
                     sb.Append(bVal[ii]);
-                    //sb.Append(" (" + Convert.ToString(bVal[ii], 2).PadLeft(8, '0') + ")");
+                    // sb.Append(" (" + Convert.ToString(bVal[ii], 2).PadLeft(8, '0') + ")");
                     sb.Append(", ");
                 }
+
                 return sb.ToString();
             }
             else if (value is IDictionary)
@@ -257,9 +265,10 @@ namespace TVHeadEnd.HTSP
                 IDictionary dictVal = (IDictionary)value;
                 foreach (object key in dictVal.Keys)
                 {
-                    object currValue = dictVal[key];
-                    sb.Append(pad + key + " : " + getValueString(currValue, pad + "  ") + "\n");
+                    object? currValue = dictVal[key];
+                    sb.Append(pad + key + " : " + GetValueString(currValue, pad + "  ") + "\n");
                 }
+
                 return sb.ToString();
             }
             else if (value is ICollection)
@@ -268,77 +277,80 @@ namespace TVHeadEnd.HTSP
                 ICollection colVal = (ICollection)value;
                 foreach (object tmpObj in colVal)
                 {
-                    sb.Append(getValueString(tmpObj, pad) + ", ");
+                    sb.Append(GetValueString(tmpObj, pad) + ", ");
                 }
+
                 return sb.ToString();
             }
-            return "" + value;
+
+            return string.Empty + value;
         }
 
-        private byte[] serializeBinary(IDictionary map)
+        private byte[] SerializeBinary(IDictionary map)
         {
-            byte[] buf = new byte[0];
+            byte[] buf = Array.Empty<byte>();
             foreach (object key in map.Keys)
             {
-                object value = map[key];
-                byte[] sub = serializeBinary(key.ToString(), value);
+                object? value = map[key];
+                byte[] sub = SerializeBinary(key.ToString() ?? string.Empty, value);
                 buf = buf.Concat(sub).ToArray();
             }
+
             return buf;
         }
 
-        private byte[] serializeBinary(ICollection list)
+        private byte[] SerializeBinary(ICollection list)
         {
-            byte[] buf = new byte[0];
+            byte[] buf = Array.Empty<byte>();
             foreach (object value in list)
             {
-                byte[] sub = serializeBinary("", value);
+                byte[] sub = SerializeBinary(string.Empty, value);
                 buf = buf.Concat(sub).ToArray();
             }
+
             return buf;
         }
 
-
-        private byte[] serializeBinary(string name, object value)
+        private byte[] SerializeBinary(string name, object? value)
         {
             byte[] bName = GetBytes(name);
-            byte[] bData = new byte[0];
+            byte[] bData = Array.Empty<byte>();
             byte type;
 
             if (value is string)
             {
-                type = HTSMessage.HMF_STR;
-                bData = GetBytes(((string)value));
+                type = HTSMessage.HmfStr;
+                bData = GetBytes((string)value);
             }
             else if (value is System.Numerics.BigInteger)
             {
-                type = HTSMessage.HMF_S64;
-                bData = toByteArray((System.Numerics.BigInteger)value);
+                type = HTSMessage.HmfS64;
+                bData = ToByteArray((System.Numerics.BigInteger)value);
             }
             else if (value is int?)
             {
-                type = HTSMessage.HMF_S64;
-                bData = toByteArray((int)value);
+                type = HTSMessage.HmfS64;
+                bData = ToByteArray((int)value);
             }
             else if (value is long?)
             {
-                type = HTSMessage.HMF_S64;
-                bData = toByteArray((long)value);
+                type = HTSMessage.HmfS64;
+                bData = ToByteArray((long)value);
             }
             else if (value is byte[])
             {
-                type = HTSMessage.HMF_BIN;
+                type = HTSMessage.HmfBin;
                 bData = (byte[])value;
             }
             else if (value is IDictionary)
             {
-                type = HTSMessage.HMF_MAP;
-                bData = serializeBinary((IDictionary)value);
+                type = HTSMessage.HmfMap;
+                bData = SerializeBinary((IDictionary)value);
             }
             else if (value is ICollection)
             {
-                type = HTSMessage.HMF_LIST;
-                bData = serializeBinary((ICollection)value);
+                type = HTSMessage.HmfList;
+                bData = SerializeBinary((ICollection)value);
             }
             else if (value == null)
             {
@@ -355,7 +367,7 @@ namespace TVHeadEnd.HTSP
             buf[2] = unchecked((byte)((bData.Length >> 24) & 0xFF));
             buf[3] = unchecked((byte)((bData.Length >> 16) & 0xFF));
             buf[4] = unchecked((byte)((bData.Length >> 8) & 0xFF));
-            buf[5] = unchecked((byte)((bData.Length) & 0xFF));
+            buf[5] = unchecked((byte)(bData.Length & 0xFF));
 
             Array.Copy(bName, 0, buf, 6, bName.Length);
             Array.Copy(bData, 0, buf, 6 + bName.Length, bData.Length);
@@ -363,11 +375,11 @@ namespace TVHeadEnd.HTSP
             return buf;
         }
 
-        private byte[] toByteArray(System.Numerics.BigInteger big)
+        private byte[] ToByteArray(System.Numerics.BigInteger big)
         {
             byte[] b = BitConverter.GetBytes((long)big);
-            byte[] b1 = new byte[0];
-            Boolean tail = false;
+            byte[] b1 = Array.Empty<byte>();
+            bool tail = false;
             for (int ii = 0; ii < b.Length; ii++)
             {
                 if (b[ii] != 0 || !tail)
@@ -376,14 +388,16 @@ namespace TVHeadEnd.HTSP
                     b1 = b1.Concat(new byte[] { b[ii] }).ToArray();
                 }
             }
+
             if (b1.Length == 0)
             {
                 b1 = new byte[1];
             }
+
             return b1;
         }
 
-        public static HTSMessage parse(byte[] data, ILogger<HTSMessage> logger)
+        public static HTSMessage? Parse(byte[] data, ILogger<HTSMessage> logger)
         {
             if (data.Length < 4)
             {
@@ -391,19 +405,19 @@ namespace TVHeadEnd.HTSP
                 return null;
             }
 
-            long len = uIntToLong(data[0], data[1], data[2], data[3]);
-            //Message not fully read
+            long len = UIntToLong(data[0], data[1], data[2], data[3]);
+            // Message not fully read
             if (data.Length < len + 4)
             {
-                logger.LogError("[TVHclient] HTSMessage.parse(byte[]): didn't receive enough data for len: {len}", len);
+                logger.LogError("[TVHclient] HTSMessage.parse(byte[]): didn't receive enough data for len: {Len}", len);
                 return null;
             }
 
-            //drops 4 bytes (length information)
+            // drops 4 bytes (length information)
             byte[] messageData = new byte[len];
             Array.Copy(data, 4, messageData, 0, len);
 
-            HTSMessage msg = deserializeBinary(messageData);
+            HTSMessage msg = DeserializeBinary(messageData);
 
             msg._logger = logger;
             msg._data = data;
@@ -411,7 +425,7 @@ namespace TVHeadEnd.HTSP
             return msg;
         }
 
-        public static long uIntToLong(byte b1, byte b2, byte b3, byte b4)
+        public static long UIntToLong(byte b1, byte b2, byte b3, byte b4)
         {
             long i = 0;
             i <<= 8;
@@ -425,18 +439,19 @@ namespace TVHeadEnd.HTSP
             return i;
         }
 
-        private static System.Numerics.BigInteger toBigInteger(byte[] b)
+        private static System.Numerics.BigInteger ToBigInteger(byte[] b)
         {
             byte[] b1 = new byte[8];
             for (int ii = 0; ii < b.Length; ii++)
             {
                 b1[ii] = b[ii];
             }
+
             long lValue = BitConverter.ToInt64(b1, 0);
             return new System.Numerics.BigInteger(lValue);
         }
 
-        private static HTSMessage deserializeBinary(byte[] messageData)
+        private static HTSMessage DeserializeBinary(byte[] messageData)
         {
             byte type, namelen;
             long datalen;
@@ -445,70 +460,76 @@ namespace TVHeadEnd.HTSP
             int cnt = 0;
 
             ByteBuffer buf = new ByteBuffer(messageData);
-            while (buf.hasRemaining())
+            while (buf.HasRemaining())
             {
-                type = buf.get();
-                namelen = buf.get();
-                datalen = uIntToLong(buf.get(), buf.get(), buf.get(), buf.get());
+                type = buf.Get();
+                namelen = buf.Get();
+                datalen = UIntToLong(buf.Get(), buf.Get(), buf.Get(), buf.Get());
 
                 if (buf.Length() < namelen + datalen)
                 {
                     throw new IOException("[TVHclient] HTSMessage.deserializeBinary: buffer limit exceeded");
                 }
 
-                //Get the key for the map (the name)
-                string name = null;
+                // Get the key for the map (the name)
+                string name;
                 if (namelen == 0)
                 {
-                    name = Convert.ToString(cnt++);
+                    name = Convert.ToString(cnt++, CultureInfo.InvariantCulture);
                 }
                 else
                 {
                     byte[] bName = new byte[namelen];
-                    buf.get(bName);
+                    buf.Get(bName);
                     name = NewString(bName);
                 }
 
-                //Get the actual content
-                object obj = null;
+                // Get the actual content
+                object? obj;
                 byte[] bData = new byte[datalen];
-                buf.get(bData);
+                buf.Get(bData);
 
                 switch (type)
                 {
-                    case HTSMessage.HMF_STR:
+                    case HTSMessage.HmfStr:
                         {
                             obj = NewString(bData);
                             break;
                         }
-                    case HMF_BIN:
+
+                    case HmfBin:
                         {
                             obj = bData;
                             break;
                         }
-                    case HMF_S64:
+
+                    case HmfS64:
                         {
-                            obj = toBigInteger(bData);
+                            obj = ToBigInteger(bData);
                             break;
                         }
-                    case HMF_MAP:
+
+                    case HmfMap:
                         {
-                            obj = deserializeBinary(bData);
+                            obj = DeserializeBinary(bData);
                             break;
                         }
-                    case HMF_LIST:
+
+                    case HmfList:
                         {
-                            obj = new List<object>(deserializeBinary(bData)._dict.Values);
+                            obj = new List<object>(DeserializeBinary(bData)._dict.Values);
                             break;
                         }
+
                     default:
                         throw new IOException("[TVHclient] HTSMessage.deserializeBinary: unknown data type");
                 }
-                msg.putField(name, obj);
+
+                msg.PutField(name, obj);
             }
+
             return msg;
         }
-
 
         private static string NewString(byte[] bytes)
         {

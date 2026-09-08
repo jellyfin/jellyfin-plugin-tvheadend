@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
-using System;
 
 namespace TVHeadEnd.Helper
 {
@@ -13,7 +13,7 @@ namespace TVHeadEnd.Helper
             _data = new List<byte>();
         }
 
-        public byte[] getFromStart(int count)
+        public byte[] GetFromStart(int count)
         {
             lock (_data)
             {
@@ -21,11 +21,12 @@ namespace TVHeadEnd.Helper
                 {
                     Monitor.Wait(_data);
                 }
+
                 return _data.GetRange(0, count).ToArray();
             }
         }
 
-        public byte[] extractFromStart(int count)
+        public byte[] ExtractFromStart(int count)
         {
             lock (_data)
             {
@@ -33,13 +34,14 @@ namespace TVHeadEnd.Helper
                 {
                     Monitor.Wait(_data);
                 }
+
                 byte[] result = _data.GetRange(0, count).ToArray();
                 _data.RemoveRange(0, count);
                 return result;
             }
         }
 
-        public void appendAll(byte[] data)
+        public void AppendAll(byte[] data)
         {
             lock (_data)
             {
@@ -52,13 +54,13 @@ namespace TVHeadEnd.Helper
             }
         }
 
-        public void appendCount(byte[] data, long count)
+        public void AppendCount(byte[] data, long count)
         {
             lock (_data)
             {
                 byte[] dataRange = new byte[count];
                 Array.Copy(data, 0, dataRange, 0, dataRange.Length);
-                appendAll(dataRange);
+                AppendAll(dataRange);
             }
         }
 

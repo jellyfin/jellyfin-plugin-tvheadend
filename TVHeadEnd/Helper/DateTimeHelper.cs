@@ -6,14 +6,14 @@ using System.Threading.Tasks;
 
 namespace TVHeadEnd.Helper
 {
-    public class DateTimeHelper
+    public static class DateTimeHelper
     {
-        public static long getUnixUTCTimeFromUtcDateTime(DateTime utcTime)
+        public static long GetUnixUtcTimeFromUtcDateTime(DateTime utcTime)
         {
-            //create Timespan by subtracting the value provided from the Unix Epoch
-            TimeSpan span = (utcTime - new DateTime(1970, 1, 1, 0, 0, 0, 0));
+            // create Timespan by subtracting the value provided from the Unix Epoch
+            TimeSpan span = utcTime - new DateTime(1970, 1, 1, 0, 0, 0, 0);
 
-            //return the total seconds (which is a UNIX timestamp)
+            // return the total seconds (which is a UNIX timestamp)
             return (long)span.TotalSeconds;
         }
     }

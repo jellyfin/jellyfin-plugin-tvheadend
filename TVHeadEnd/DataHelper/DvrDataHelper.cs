@@ -7,7 +7,6 @@ using MediaBrowser.Model.LiveTv;
 using Microsoft.Extensions.Logging;
 using TVHeadEnd.HTSP;
 
-
 namespace TVHeadEnd.DataHelper
 {
     public class DvrDataHelper
@@ -23,7 +22,7 @@ namespace TVHeadEnd.DataHelper
             _data = new Dictionary<string, HTSMessage>();
         }
 
-        public void clean()
+        public void Clean()
         {
             lock (_data)
             {
@@ -31,9 +30,15 @@ namespace TVHeadEnd.DataHelper
             }
         }
 
-        public void dvrEntryAdd(HTSMessage message)
+        public void DvrEntryAdd(HTSMessage message)
         {
-            string id = message.getString("id");
+            string? id = message.GetString("id");
+            if (id == null)
+            {
+                _logger.LogDebug("[TVHclient] DvrDataHelper: entry without an id - skipping");
+                return;
+            }
+
             lock (_data)
             {
                 if (_data.ContainsKey(id))
@@ -41,44 +46,58 @@ namespace TVHeadEnd.DataHelper
                     _logger.LogDebug("[TVHclient] DvrDataHelper.dvrEntryAdd id already in database - skipping");
                     return;
                 }
+
                 _data.Add(id, message);
             }
         }
 
-        public void dvrEntryUpdate(HTSMessage message)
+        public void DvrEntryUpdate(HTSMessage message)
         {
-            string id = message.getString("id");
+            string? id = message.GetString("id");
+            if (id == null)
+            {
+                _logger.LogDebug("[TVHclient] DvrDataHelper: entry without an id - skipping");
+                return;
+            }
+
             lock (_data)
             {
-                HTSMessage oldMessage = _data[id];
-                if (oldMessage == null)
+                if (!_data.TryGetValue(id, out HTSMessage? oldMessage) || oldMessage == null)
                 {
                     _logger.LogDebug("[TVHclient] DvrDataHelper.dvrEntryUpdate id not in database - skipping");
                     return;
                 }
+
                 foreach (KeyValuePair<string, object> entry in message)
                 {
-                    if (oldMessage.containsField(entry.Key))
+                    if (oldMessage.ContainsField(entry.Key))
                     {
-                        oldMessage.removeField(entry.Key);
+                        oldMessage.RemoveField(entry.Key);
                     }
-                    oldMessage.putField(entry.Key, entry.Value);
+
+                    oldMessage.PutField(entry.Key, entry.Value);
                 }
             }
         }
 
-        public void dvrEntryDelete(HTSMessage message)
+        public void DvrEntryDelete(HTSMessage message)
         {
-            string id = message.getString("id");
+            string? id = message.GetString("id");
+            if (id == null)
+            {
+                _logger.LogDebug("[TVHclient] DvrDataHelper: entry without an id - skipping");
+                return;
+            }
+
             lock (_data)
             {
                 _data.Remove(id);
             }
         }
 
-        public Task<IEnumerable<MyRecordingInfo>> buildDvrInfos(CancellationToken cancellationToken)
+        public Task<IEnumerable<MyRecordingInfo>> BuildDvrInfos(CancellationToken cancellationToken)
         {
-            return Task.Factory.StartNew<IEnumerable<MyRecordingInfo>>(() =>
+            return Task.Run<IEnumerable<MyRecordingInfo>>(() =>
             {
                 lock (_data)
                 {
@@ -96,14 +115,14 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("error"))
+                            if (m.ContainsField("error"))
                             {
                                 // When TVHeadend recordings are removed, their info can
                                 // still be kept around with a status of "completed".
                                 // The only way to identify them is from the error string
                                 // which is set to "File missing". Use that to not show
                                 // non-existing deleted recordings.
-                                if (m.getString("error").Contains("missing"))
+                                if (m.GetString("error")?.Contains("missing", StringComparison.Ordinal) == true)
                                 {
                                     continue;
                                 }
@@ -115,9 +134,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("id"))
+                            if (m.ContainsField("id"))
                             {
-                                ri.Id = "" + m.getInt("id");
+                                ri.Id = string.Empty + m.GetInt("id");
                             }
                         }
                         catch (InvalidCastException)
@@ -126,9 +145,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("path"))
+                            if (m.ContainsField("path"))
                             {
-                                ri.Path = "" + m.getString("path");
+                                ri.Path = string.Empty + m.GetString("path");
                             }
                         }
                         catch (InvalidCastException)
@@ -137,9 +156,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("url"))
+                            if (m.ContainsField("url"))
                             {
-                                ri.Url = "" + m.getString("url");
+                                ri.Url = string.Empty + m.GetString("url");
                             }
                         }
                         catch (InvalidCastException)
@@ -148,9 +167,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("channel"))
+                            if (m.ContainsField("channel"))
                             {
-                                ri.ChannelId = "" + m.getInt("channel");
+                                ri.ChannelId = string.Empty + m.GetInt("channel");
                             }
                         }
                         catch (InvalidCastException)
@@ -159,9 +178,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("start"))
+                            if (m.ContainsField("start"))
                             {
-                                long unixUtc = m.getLong("start");
+                                long unixUtc = m.GetLong("start");
                                 ri.StartDate = _initialDateTimeUTC.AddSeconds(unixUtc).ToUniversalTime();
                             }
                         }
@@ -171,9 +190,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("stop"))
+                            if (m.ContainsField("stop"))
                             {
-                                long unixUtc = m.getLong("stop");
+                                long unixUtc = m.GetLong("stop");
                                 ri.EndDate = _initialDateTimeUTC.AddSeconds(unixUtc).ToUniversalTime();
                             }
                         }
@@ -183,9 +202,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("title"))
+                            if (m.ContainsField("title"))
                             {
-                                ri.Name = m.getString("title");
+                                ri.Name = m.GetString("title");
                             }
                         }
                         catch (InvalidCastException)
@@ -194,9 +213,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("description"))
+                            if (m.ContainsField("description"))
                             {
-                                ri.Overview = m.getString("description");
+                                ri.Overview = m.GetString("description");
                             }
                         }
                         catch (InvalidCastException)
@@ -205,9 +224,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("subtitle"))
+                            if (m.ContainsField("subtitle"))
                             {
-                                ri.EpisodeTitle = m.getString("subtitle");
+                                ri.EpisodeTitle = m.GetString("subtitle");
                                 ri.IsSeries = true;
                             }
                         }
@@ -221,9 +240,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("state"))
+                            if (m.ContainsField("state"))
                             {
-                                string state = m.getString("state");
+                                string? state = m.GetString("state");
                                 switch (state)
                                 {
                                     case "completed":
@@ -232,7 +251,7 @@ namespace TVHeadEnd.DataHelper
                                     case "scheduled":
                                         ri.Status = RecordingStatus.New;
                                         continue;
-                                    //break;
+                                    // break;
                                     case "missed":
                                         ri.Status = RecordingStatus.Error;
                                         break;
@@ -241,9 +260,9 @@ namespace TVHeadEnd.DataHelper
                                         break;
 
                                     default:
-                                        _logger.LogCritical("[TVHclient] DvrDataHelper.buildDvrInfos: state '{state}' not handled", state);
+                                        _logger.LogCritical("[TVHclient] DvrDataHelper.buildDvrInfos: state '{State}' not handled", state);
                                         continue;
-                                    //break;
+                                        // break;
                                 }
                             }
                         }
@@ -252,16 +271,16 @@ namespace TVHeadEnd.DataHelper
                         }
 
                         // Path must not be set to force emby use of the LiveTvService methods!!!!
-                        //if (m.containsField("path"))
-                        //{
-                        //    ri.Path = m.getString("path");
-                        //}
+                        // if (m.ContainsField("path"))
+                        // {
+                        //    ri.Path = m.GetString("path");
+                        // }
 
                         try
                         {
-                            if (m.containsField("autorecId"))
+                            if (m.ContainsField("autorecId"))
                             {
-                                ri.SeriesTimerId = m.getString("autorecId");
+                                ri.SeriesTimerId = m.GetString("autorecId");
                             }
                         }
                         catch (InvalidCastException)
@@ -270,9 +289,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("eventId"))
+                            if (m.ContainsField("eventId"))
                             {
-                                ri.ProgramId = "" + m.getInt("eventId");
+                                ri.ProgramId = string.Empty + m.GetInt("eventId");
                             }
                         }
                         catch (InvalidCastException)
@@ -300,14 +319,15 @@ namespace TVHeadEnd.DataHelper
 
                         result.Add(ri);
                     }
+
                     return result;
                 }
             });
         }
 
-        public Task<IEnumerable<TimerInfo>> buildPendingTimersInfos(CancellationToken cancellationToken)
+        public Task<IEnumerable<TimerInfo>> BuildPendingTimersInfos(CancellationToken cancellationToken)
         {
-            return Task.Factory.StartNew<IEnumerable<TimerInfo>>(() =>
+            return Task.Run<IEnumerable<TimerInfo>>(() =>
             {
                 lock (_data)
                 {
@@ -325,9 +345,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("id"))
+                            if (m.ContainsField("id"))
                             {
-                                ti.Id = "" + m.getInt("id");
+                                ti.Id = string.Empty + m.GetInt("id");
                             }
                         }
                         catch (InvalidCastException)
@@ -336,9 +356,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("channel"))
+                            if (m.ContainsField("channel"))
                             {
-                                ti.ChannelId = "" + m.getInt("channel");
+                                ti.ChannelId = string.Empty + m.GetInt("channel");
                             }
                         }
                         catch (InvalidCastException)
@@ -347,9 +367,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("start"))
+                            if (m.ContainsField("start"))
                             {
-                                long unixUtc = m.getLong("start");
+                                long unixUtc = m.GetLong("start");
                                 ti.StartDate = _initialDateTimeUTC.AddSeconds(unixUtc).ToUniversalTime();
                             }
                         }
@@ -359,9 +379,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("stop"))
+                            if (m.ContainsField("stop"))
                             {
-                                long unixUtc = m.getLong("stop");
+                                long unixUtc = m.GetLong("stop");
                                 ti.EndDate = _initialDateTimeUTC.AddSeconds(unixUtc).ToUniversalTime();
                             }
                         }
@@ -371,9 +391,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("title"))
+                            if (m.ContainsField("title"))
                             {
-                                ti.Name = m.getString("title");
+                                ti.Name = m.GetString("title");
                             }
                         }
                         catch (InvalidCastException)
@@ -382,9 +402,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("description"))
+                            if (m.ContainsField("description"))
                             {
-                                ti.Overview = m.getString("description");
+                                ti.Overview = m.GetString("description");
                             }
                         }
                         catch (InvalidCastException)
@@ -393,9 +413,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("state"))
+                            if (m.ContainsField("state"))
                             {
-                                string state = m.getString("state");
+                                string? state = m.GetString("state");
                                 switch (state)
                                 {
                                     case "scheduled":
@@ -413,10 +433,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("startExtra"))
+                            if (m.ContainsField("startExtra"))
                             {
-
-                                ti.PrePaddingSeconds = (int)m.getLong("startExtra") * 60;
+                                ti.PrePaddingSeconds = (int)m.GetLong("startExtra") * 60;
                                 ti.IsPrePaddingRequired = true;
                             }
                         }
@@ -426,10 +445,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("stopExtra"))
+                            if (m.ContainsField("stopExtra"))
                             {
-
-                                ti.PostPaddingSeconds = (int)m.getLong("stopExtra") * 60;
+                                ti.PostPaddingSeconds = (int)m.GetLong("stopExtra") * 60;
                                 ti.IsPostPaddingRequired = true;
                             }
                         }
@@ -439,9 +457,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("priority"))
+                            if (m.ContainsField("priority"))
                             {
-                                ti.Priority = m.getInt("priority");
+                                ti.Priority = m.GetInt("priority");
                             }
                         }
                         catch (InvalidCastException)
@@ -450,9 +468,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("autorecId"))
+                            if (m.ContainsField("autorecId"))
                             {
-                                ti.SeriesTimerId = m.getString("autorecId");
+                                ti.SeriesTimerId = m.GetString("autorecId");
                             }
                         }
                         catch (InvalidCastException)
@@ -461,9 +479,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.containsField("eventId"))
+                            if (m.ContainsField("eventId"))
                             {
-                                ti.ProgramId = "" + m.getInt("eventId");
+                                ti.ProgramId = string.Empty + m.GetInt("eventId");
                             }
                         }
                         catch (InvalidCastException)
@@ -472,6 +490,7 @@ namespace TVHeadEnd.DataHelper
 
                         result.Add(ti);
                     }
+
                     return result;
                 }
             });
