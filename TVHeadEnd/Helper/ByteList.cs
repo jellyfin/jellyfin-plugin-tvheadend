@@ -63,13 +63,5 @@ namespace TVHeadEnd.Helper
                 AppendAll(dataRange);
             }
         }
-
-        public int Count()
-        {
-            lock (_data)
-            {
-                return _data.Count;
-            }
-        }
     }
 }

@@ -12,8 +12,6 @@ namespace TVHeadEnd.HTSP
 {
     public sealed class HTSConnectionAsync : IDisposable
     {
-        private const long BytesPerGiga = 1024 * 1024 * 1024;
-
         private readonly object _lock;
         private readonly IHTSConnectionListener _listener;
         private readonly string _clientName;
@@ -38,7 +36,7 @@ namespace TVHeadEnd.HTSP
         private int _serverProtocolVersion;
         private string? _servername;
         private string? _serverversion;
-        private string? _diskSpace;
+        private string? _webRoot;
 
         private Thread? _receiveHandlerThread;
         private Thread? _messageBuilderThread;
@@ -206,6 +204,10 @@ namespace TVHeadEnd.HTSP
                     _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: hello didn't include required field 'htspversion' - htsp incorrectly implemented by tvheadend");
                 }
 
+                // TVHeadend only sends "webroot" when it is actually configured behind a
+                // path prefix; its absence means the server is served from the root.
+                _webRoot = helloResponse.GetString("webroot", null);
+
                 if (helloResponse.ContainsField("servername"))
                 {
                     _servername = helloResponse.GetString("servername");
@@ -249,35 +251,6 @@ namespace TVHeadEnd.HTSP
                     bool auth = authResponse.GetInt("noaccess", 0) != 1;
                     if (auth)
                     {
-                        HTSMessage getDiskSpaceMessage = new HTSMessage();
-                        getDiskSpaceMessage.Method = "getDiskSpace";
-                        SendMessage(getDiskSpaceMessage, loopBackResponseHandler);
-                        HTSMessage diskSpaceResponse = loopBackResponseHandler.GetResponse();
-                        if (diskSpaceResponse != null)
-                        {
-                            long freeDiskSpace = -1;
-                            long totalDiskSpace = -1;
-                            if (diskSpaceResponse.ContainsField("freediskspace"))
-                            {
-                                freeDiskSpace = diskSpaceResponse.GetLong("freediskspace") / BytesPerGiga;
-                            }
-                            else
-                            {
-                                _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: getDiskSpace didn't include required field 'freediskspace' - htsp incorrectly implemented by tvheadend");
-                            }
-
-                            if (diskSpaceResponse.ContainsField("totaldiskspace"))
-                            {
-                                totalDiskSpace = diskSpaceResponse.GetLong("totaldiskspace") / BytesPerGiga;
-                            }
-                            else
-                            {
-                                _logger.LogDebug("[TVHclient] HTSConnectionAsync.authenticate: getDiskSpace didn't include required field 'totaldiskspace' - htsp incorrectly implemented by tvheadend");
-                            }
-
-                            _diskSpace = freeDiskSpace + "GB / " + totalDiskSpace + "GB";
-                        }
-
                         HTSMessage enableAsyncMetadataMessage = new HTSMessage();
                         enableAsyncMetadataMessage.Method = "enableAsyncMetadata";
                         SendMessage(enableAsyncMetadataMessage, null);
@@ -292,9 +265,31 @@ namespace TVHeadEnd.HTSP
             return false;
         }
 
+        /// <summary>
+        /// Gets the highest HTSP version the server itself supports.
+        /// </summary>
+        /// <remarks>
+        /// This is the raw <c>htspversion</c> from the hello response, which reports the server's
+        /// own maximum rather than the agreed version. Use <see cref="GetNegotiatedProtocolVersion"/>
+        /// to decide which fields the connection will actually carry.
+        /// </remarks>
+        /// <returns>The server's maximum supported HTSP version.</returns>
         public int GetServerProtocolVersion()
         {
             return _serverProtocolVersion;
+        }
+
+        /// <summary>
+        /// Gets the HTSP version actually in effect for this connection.
+        /// </summary>
+        /// <remarks>
+        /// TVHeadend applies <c>min(server version, requested version)</c> internally and does not
+        /// report the result, so the same minimum is computed here.
+        /// </remarks>
+        /// <returns>The negotiated HTSP version.</returns>
+        public int GetNegotiatedProtocolVersion()
+        {
+            return Math.Min(_serverProtocolVersion, (int)HTSMessage.HtspVersion);
         }
 
         public string? GetServername()
@@ -307,9 +302,13 @@ namespace TVHeadEnd.HTSP
             return _serverversion;
         }
 
-        public string? GetDiskspace()
+        /// <summary>
+        /// Gets the web root TVHeadend reported during the HTSP handshake.
+        /// </summary>
+        /// <returns>The server's web root, or <c>null</c> if it serves from the root.</returns>
+        public string? GetWebRoot()
         {
-            return _diskSpace;
+            return _webRoot;
         }
 
         public void SendMessage(HTSMessage message, IHTSResponseHandler? responseHandler)

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.LiveTv;
@@ -12,6 +11,7 @@ using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.MediaInfo;
 using Microsoft.Extensions.Logging;
+using TVHeadEnd.DataHelper;
 using TVHeadEnd.Helper;
 using TVHeadEnd.HTSP;
 using TVHeadEnd.HTSP.Responses;
@@ -22,6 +22,16 @@ namespace TVHeadEnd
 {
     public class LiveTvService : ILiveTvService
     {
+        /// <summary>
+        /// DVR_AUTOREC_BTYPE_ALL - record any broadcast.
+        /// </summary>
+        private const int BroadcastTypeAll = 0;
+
+        /// <summary>
+        /// DVR_AUTOREC_BTYPE_NEW_OR_UNKNOWN - record only broadcasts flagged as new or unflagged.
+        /// </summary>
+        private const int BroadcastTypeNewOrUnknown = 1;
+
         private readonly IMediaEncoder _mediaEncoder;
 
         private readonly TimeSpan _timeout = TimeSpan.FromMinutes(5);
@@ -167,10 +177,108 @@ namespace TVHeadEnd
 
         public async Task CreateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken)
         {
-            // Dummy method to avoid warnings
-            await Task.Run(() => 0, cancellationToken).ConfigureAwait(false);
+            ArgumentNullException.ThrowIfNull(info);
 
-            throw new NotImplementedException();
+            int timeOut = await WaitForInitialLoadTask(cancellationToken).ConfigureAwait(false);
+            if (timeOut == -1 || cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogDebug("LiveTvService.CreateSeriesTimerAsync: call cancelled or timed out");
+                return;
+            }
+
+            HTSMessage createAutorecMessage = new HTSMessage();
+            createAutorecMessage.Method = "addAutorecEntry";
+            BuildAutorecFields(createAutorecMessage, info);
+            createAutorecMessage.PutField("configName", _htsConnectionHandler.GetProfile());
+
+            await SendAutorecMessage(createAutorecMessage, nameof(CreateSeriesTimerAsync), cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Fills in the autorec fields shared by addAutorecEntry and updateAutorecEntry.
+        /// </summary>
+        /// <param name="message">The message to populate.</param>
+        /// <param name="info">The series timer to translate.</param>
+        private void BuildAutorecFields(HTSMessage message, SeriesTimerInfo info)
+        {
+            message.PutField("title", info.Name);
+
+            // A negative channelId means "any channel" from HTSP v25 on; older servers treat an
+            // absent channelId the same way, so it is only sent for a channel-bound timer.
+            if (!info.RecordAnyChannel && !string.IsNullOrEmpty(info.ChannelId))
+            {
+                message.PutField("channelId", Convert.ToInt32(info.ChannelId, CultureInfo.InvariantCulture));
+            }
+            else if (_htsConnectionHandler.GetNegotiatedProtocolVersion() > 24)
+            {
+                message.PutField("channelId", -1);
+            }
+
+            if (info.Days != null && info.Days.Count > 0 && info.Days.Count < 7)
+            {
+                message.PutField("daysOfWeek", AutorecDataHelper.GetDaysOfWeekFromList(info.Days));
+            }
+
+            // "start"/"startWindow" are minutes from midnight, -1 meaning any time.
+            if (info.RecordAnyTime)
+            {
+                message.PutField("start", -1);
+                message.PutField("startWindow", -1);
+            }
+            else
+            {
+                int start = AutorecDataHelper.GetMinutesFromMidnight(info.StartDate);
+                message.PutField("start", start);
+                message.PutField("startWindow", (start + 30) % (24 * 60));
+            }
+
+            // Padding is exchanged in minutes; 0 falls back to the DVR configuration.
+            message.PutField("startExtra", (long)(info.PrePaddingSeconds / 60));
+            message.PutField("stopExtra", (long)(info.PostPaddingSeconds / 60));
+            message.PutField("priority", _htsConnectionHandler.GetPriority());
+            message.PutField("broadcastType", info.RecordNewOnly ? BroadcastTypeNewOrUnknown : BroadcastTypeAll);
+        }
+
+        /// <summary>
+        /// Sends an autorec message and logs whatever TVHeadend reports back.
+        /// </summary>
+        /// <param name="message">The autorec message to send.</param>
+        /// <param name="caller">The calling method, used for log context.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task representing the operation.</returns>
+        private async Task SendAutorecMessage(HTSMessage message, string caller, CancellationToken cancellationToken)
+        {
+            TaskWithTimeoutRunner<HTSMessage> twtr = new TaskWithTimeoutRunner<HTSMessage>(_timeout);
+            TaskWithTimeoutResult<HTSMessage> twtRes = await twtr.RunWithTimeout(Task.Run(
+                () =>
+                {
+                    LoopBackResponseHandler lbrh = new LoopBackResponseHandler();
+                    _htsConnectionHandler.SendMessage(message, lbrh);
+                    LastRecordingChange = DateTime.UtcNow;
+                    return lbrh.GetResponse();
+                },
+                cancellationToken)).ConfigureAwait(false);
+
+            if (twtRes.HasTimeout)
+            {
+                _logger.LogError("LiveTvService.{Caller}: can't change series timer because the timeout was reached", caller);
+                return;
+            }
+
+            HTSMessage response = twtRes.Result;
+            if (response.GetInt("success", 0) == 1)
+            {
+                return;
+            }
+
+            if (response.ContainsField("error"))
+            {
+                _logger.LogError("LiveTvService.{Caller}: can't change series timer: '{Why}'", caller, response.GetString("error"));
+            }
+            else if (response.ContainsField("noaccess"))
+            {
+                _logger.LogError("LiveTvService.{Caller}: can't change series timer: user is not allowed to record", caller);
+            }
         }
 
         public async Task CreateTimerAsync(TimerInfo info, CancellationToken cancellationToken)
@@ -536,8 +644,8 @@ namespace TVHeadEnd
                 {
                     return new SeriesTimerInfo
                     {
-                        PostPaddingSeconds = Plugin.Instance.Configuration.Pre_Padding,
-                        PrePaddingSeconds = Plugin.Instance.Configuration.Post_Padding,
+                        PrePaddingSeconds = Plugin.Instance.Configuration.Pre_Padding,
+                        PostPaddingSeconds = Plugin.Instance.Configuration.Post_Padding,
                         RecordAnyChannel = true,
                         RecordAnyTime = true,
                         RecordNewOnly = false
@@ -575,7 +683,17 @@ namespace TVHeadEnd
                 return new List<ProgramInfo>();
             }
 
-            return twtRes.Result;
+            var programs = twtRes.Result.ToList();
+
+            // From HTSP v34 on the server sends imagecache references relative to the web root
+            // instead of absolute URLs, so they have to be resolved against the TVH endpoint.
+            foreach (var program in programs)
+            {
+                program.ImageUrl = _htsConnectionHandler.ResolveImageUrl(program.ImageUrl);
+                program.HasImage = !string.IsNullOrEmpty(program.ImageUrl);
+            }
+
+            return programs;
         }
 
         public async Task<IEnumerable<SeriesTimerInfo>> GetSeriesTimersAsync(CancellationToken cancellationToken)
@@ -629,10 +747,21 @@ namespace TVHeadEnd
 
         public async Task UpdateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken)
         {
-            await CancelSeriesTimerAsync(info.Id, cancellationToken).ConfigureAwait(false);
-            LastRecordingChange = DateTime.UtcNow;
-            // TODO add if method is implemented
-            // await CreateSeriesTimerAsync(info, cancellationToken);
+            ArgumentNullException.ThrowIfNull(info);
+
+            int timeOut = await WaitForInitialLoadTask(cancellationToken).ConfigureAwait(false);
+            if (timeOut == -1 || cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogDebug("LiveTvService.UpdateSeriesTimerAsync: call cancelled or timed out");
+                return;
+            }
+
+            HTSMessage updateAutorecMessage = new HTSMessage();
+            updateAutorecMessage.Method = "updateAutorecEntry";
+            updateAutorecMessage.PutField("id", info.Id);
+            BuildAutorecFields(updateAutorecMessage, info);
+
+            await SendAutorecMessage(updateAutorecMessage, nameof(UpdateSeriesTimerAsync), cancellationToken).ConfigureAwait(false);
         }
 
         public async Task UpdateTimerAsync(TimerInfo updatedTimer, CancellationToken cancellationToken)
@@ -688,23 +817,6 @@ namespace TVHeadEnd
         private Task<int> WaitForInitialLoadTask(CancellationToken cancellationToken)
         {
             return Task.Run(() => _htsConnectionHandler.WaitForInitialLoad(cancellationToken), cancellationToken);
-        }
-
-        private static string Dump(List<DayOfWeek> days)
-        {
-            StringBuilder sb = new StringBuilder();
-            foreach (DayOfWeek dow in days)
-            {
-                sb.Append(dow + ", ");
-            }
-
-            string tmpResult = sb.ToString();
-            if (tmpResult.EndsWith(','))
-            {
-                tmpResult = tmpResult[..^2];
-            }
-
-            return tmpResult;
         }
     }
 }

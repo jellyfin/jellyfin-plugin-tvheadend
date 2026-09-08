@@ -19,14 +19,6 @@ namespace TVHeadEnd.DataHelper
             _data = new Dictionary<string, HTSMessage>();
         }
 
-        public void Clean()
-        {
-            lock (_data)
-            {
-                _data.Clear();
-            }
-        }
-
         public void AutorecEntryAdd(HTSMessage message)
         {
             string? id = message.GetString("id");
@@ -293,7 +285,7 @@ namespace TVHeadEnd.DataHelper
             return result;
         }
 
-        public static int GetDaysOfWeekFromList(IReadOnlyList<DayOfWeek> days)
+        public static int GetDaysOfWeekFromList(IEnumerable<DayOfWeek> days)
         {
             int result = 0;
             foreach (DayOfWeek currDay in days)

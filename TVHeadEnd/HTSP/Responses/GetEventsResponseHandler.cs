@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.LiveTv;
 using Microsoft.Extensions.Logging;
-using TVHeadEnd.HTSP;
 
 namespace TVHeadEnd.HTSP.Responses
 {
@@ -109,27 +108,19 @@ namespace TVHeadEnd.HTSP.Responses
                         pi.Id = string.Empty + currEventMessage.GetInt("eventId");
                     }
 
-                    if (currEventMessage.ContainsField("serieslinkId"))
+                    if (currEventMessage.ContainsField("serieslinkUri"))
                     {
-                        pi.SeriesId = string.Empty + currEventMessage.GetInt("serieslinkId");
+                        pi.SeriesId = currEventMessage.GetString("serieslinkUri");
                     }
 
                     if (currEventMessage.ContainsField("episodeNumber"))
                     {
                         pi.EpisodeNumber = currEventMessage.GetInt("episodeNumber");
                     }
-                    else if (currEventMessage.ContainsField("episodeId"))
-                    {
-                        pi.EpisodeNumber = currEventMessage.GetInt("episodeId");
-                    }
 
                     if (currEventMessage.ContainsField("seasonNumber"))
                     {
                         pi.SeasonNumber = currEventMessage.GetInt("seasonNumber");
-                    }
-                    else if (currEventMessage.ContainsField("seasonId"))
-                    {
-                        pi.SeasonNumber = currEventMessage.GetInt("seasonId");
                     }
 
                     if (currEventMessage.ContainsField("title"))
@@ -137,10 +128,13 @@ namespace TVHeadEnd.HTSP.Responses
                         pi.Name = currEventMessage.GetString("title");
                     }
 
-                    if (currEventMessage.ContainsField("description"))
-                    {
-                        pi.Overview = currEventMessage.GetString("description");
-                    }
+                    // Up to HTSP v31 the server collapses description/summary/subtitle into
+                    // "description" when the richer field is missing. From v32 on all three are
+                    // sent independently, so "description" can be absent even though the event
+                    // has a summary. Fall back so both layouts produce an overview.
+                    pi.Overview = currEventMessage.GetString("description", null)
+                        ?? currEventMessage.GetString("summary", null)
+                        ?? currEventMessage.GetString("subtitle", null);
 
                     if (currEventMessage.ContainsField("subtitle"))
                     {

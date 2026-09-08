@@ -12,7 +12,16 @@ namespace TVHeadEnd.HTSP
 {
     public class HTSMessage
     {
-        public const long HtspVersion = 20;
+        /// <summary>
+        /// The highest HTSP protocol version this client understands.
+        /// </summary>
+        /// <remarks>
+        /// TVHeadend negotiates <c>min(server version, requested version)</c>, so this value is
+        /// an upper bound: older servers simply agree on their own version and newer ones are
+        /// held at this one. It therefore has to be the newest version whose behaviour the
+        /// client actually handles, because the server withholds every field gated above it.
+        /// </remarks>
+        public const long HtspVersion = 44;
         private const byte HmfMap = 1;
         private const byte HmfS64 = 2;
         private const byte HmfStr = 3;
@@ -132,66 +141,6 @@ namespace TVHeadEnd.HTSP
             }
 
             return obj.ToString();
-        }
-
-        public IList<long?> GetLongList(string name)
-        {
-            List<long?> list = new List<long?>();
-
-            if (!ContainsField(name))
-            {
-                return list;
-            }
-
-            foreach (object obj in (IList)_dict[name])
-            {
-                if (obj is System.Numerics.BigInteger)
-                {
-                    list.Add((long)((System.Numerics.BigInteger)obj));
-                }
-            }
-
-            return list;
-        }
-
-        internal IList<long?> GetLongList(string name, IList<long?> std)
-        {
-            if (!ContainsField(name))
-            {
-                return std;
-            }
-
-            return GetLongList(name);
-        }
-
-        public IList<int?> GetIntList(string name)
-        {
-            List<int?> list = new List<int?>();
-
-            if (!ContainsField(name))
-            {
-                return list;
-            }
-
-            foreach (object obj in (IList)_dict[name])
-            {
-                if (obj is System.Numerics.BigInteger)
-                {
-                    list.Add((int)((System.Numerics.BigInteger)obj));
-                }
-            }
-
-            return list;
-        }
-
-        internal IList<int?> GetIntList(string name, IList<int?> std)
-        {
-            if (!ContainsField(name))
-            {
-                return std;
-            }
-
-            return GetIntList(name);
         }
 
         public IList GetList(string name)

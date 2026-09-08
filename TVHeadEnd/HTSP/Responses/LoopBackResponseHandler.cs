@@ -1,5 +1,4 @@
 using TVHeadEnd.Helper;
-using TVHeadEnd.HTSP;
 
 namespace TVHeadEnd.HTSP.Responses
 {

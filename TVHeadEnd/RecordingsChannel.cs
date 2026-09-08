@@ -3,22 +3,17 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Common.Extensions;
 using MediaBrowser.Controller.Channels;
 using MediaBrowser.Controller.Entities;
-using MediaBrowser.Controller.LiveTv;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Channels;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
-using MediaBrowser.Model.LiveTv;
 using MediaBrowser.Model.MediaInfo;
 using Microsoft.Extensions.Logging;
-using TVHeadEnd.HTSP;
-using TVHeadEnd.HTSP.Responses;
 using TVHeadEnd.TimeoutHelper;
 
 namespace TVHeadEnd
@@ -322,29 +317,19 @@ namespace TVHeadEnd
             return channelItem;
         }
 
-        private static string BuildRecordingPath(string id)
+        private string BuildRecordingPath(string id)
         {
-            var config = Plugin.Instance.Configuration;
             try
             {
-                var tvhServerName = config.TVH_ServerName.Trim();
-                var httpPort = config.HTTP_Port;
-                var htspPort = config.HTSP_Port;
-                var webRoot = config.WebRoot;
-                if (webRoot.EndsWith('/'))
-                {
-                    webRoot = webRoot.Substring(0, webRoot.Length - 1);
-                }
-
-                var userName = config.Username.Trim();
-                var password = config.Password.Trim();
-                return "http://" + userName + ":" + password + "@" + tvhServerName + ":" + httpPort + webRoot + "/dvrfile/" + id;
+                // Built through the connection handler so the recording URL uses the web root
+                // TVHeadend reports, exactly like channel icons and stream URLs do.
+                return _htsConnectionHandler.GetAuthenticatedUrl("dvrfile/" + id);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "[TVHclient] RecordingsChannel: could not build a playback path for recording {RecordingId}", id);
+                return string.Empty;
             }
-
-            return string.Empty;
         }
 
         private async Task<ChannelItemResult> GetRecordingGroups(InternalChannelItemQuery query, CancellationToken cancellationToken)

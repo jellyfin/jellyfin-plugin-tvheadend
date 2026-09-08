@@ -10,7 +10,6 @@ export default function (view, params) {
             page.querySelector('#txtTVH_ServerName').value = config.TVH_ServerName || '';
             page.querySelector('#txtHTTP_Port').value = config.HTTP_Port || '9981';
             page.querySelector('#txtHTSP_Port').value = config.HTSP_Port || '9982';
-            page.querySelector('#txtWebRoot').value = config.WebRoot || '/';
             page.querySelector('#txtUserName').value = config.Username || '';
             page.querySelector('#txtPassword').value = config.Password || '';
             page.querySelector('#txtPriority').value = config.Priority || '5';
@@ -32,7 +31,6 @@ export default function (view, params) {
             config.TVH_ServerName = form.querySelector('#txtTVH_ServerName').value;
             config.HTTP_Port = form.querySelector('#txtHTTP_Port').value;
             config.HTSP_Port = form.querySelector('#txtHTSP_Port').value;
-            config.WebRoot = form.querySelector('#txtWebRoot').value;
             config.Username = form.querySelector('#txtUserName').value;
             config.Password = form.querySelector('#txtPassword').value;
             config.Priority = form.querySelector('#txtPriority').value;

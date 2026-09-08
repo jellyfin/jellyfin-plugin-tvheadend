@@ -22,14 +22,6 @@ namespace TVHeadEnd.DataHelper
             _data = new Dictionary<string, HTSMessage>();
         }
 
-        public void Clean()
-        {
-            lock (_data)
-            {
-                _data.Clear();
-            }
-        }
-
         public void DvrEntryAdd(HTSMessage message)
         {
             string? id = message.GetString("id");
@@ -213,10 +205,12 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.ContainsField("description"))
-                            {
-                                ri.Overview = m.GetString("description");
-                            }
+                            // Up to HTSP v31 "description" is a collapsed fallback of
+                            // description/summary/subtitle; from v32 on the three fields are
+                            // independent, so fall back to keep an overview in both layouts.
+                            ri.Overview = m.GetString("description", null)
+                                ?? m.GetString("summary", null)
+                                ?? m.GetString("subtitle", null);
                         }
                         catch (InvalidCastException)
                         {
@@ -402,10 +396,9 @@ namespace TVHeadEnd.DataHelper
 
                         try
                         {
-                            if (m.ContainsField("description"))
-                            {
-                                ti.Overview = m.GetString("description");
-                            }
+                            ti.Overview = m.GetString("description", null)
+                                ?? m.GetString("summary", null)
+                                ?? m.GetString("subtitle", null);
                         }
                         catch (InvalidCastException)
                         {
