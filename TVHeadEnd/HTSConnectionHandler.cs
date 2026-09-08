@@ -33,6 +33,21 @@ namespace TVHeadEnd
         private volatile Boolean _initialLoadFinished = false;
         private volatile Boolean _connected = false;
         private volatile Boolean _configured = false;
+        private volatile Boolean _firstConnectAttemptCompleted = false;
+
+        // Give up a single connection attempt after this time (an unreachable
+        // host would otherwise block for the full kernel TCP timeout).
+        private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(10);
+
+        // How long callers may wait for the initial sync while a connection
+        // attempt is in flight or the initial data is still being received.
+        // When the server is known to be unreachable callers fail immediately
+        // and never wait.
+        private static readonly TimeSpan InitialLoadTimeout = TimeSpan.FromMinutes(5);
+
+        private const int MaxRetryDelaySeconds = 60;
+
+        private Task _connectionTask;
 
         private HTSConnectionAsync _htsConnection;
         private int _priority;
@@ -101,19 +116,30 @@ namespace TVHeadEnd
 
         public int WaitForInitialLoad(CancellationToken cancellationToken)
         {
-            ensureConnection();
-            DateTime start = DateTime.Now;
-            while (!_initialLoadFinished || cancellationToken.IsCancellationRequested)
+            StartConnectionLoop();
+            DateTime deadline = DateTime.UtcNow + InitialLoadTimeout;
+            while (!cancellationToken.IsCancellationRequested)
             {
-                Thread.Sleep(500);
-                TimeSpan duration = DateTime.Now - start;
-                long durationInSec = duration.Ticks / TimeSpan.TicksPerSecond;
-                if (durationInSec > 60 * 15) // 15 Min timeout, should be enough to load huge data count
+                if (_initialLoadFinished)
+                {
+                    return 0;
+                }
+
+                // Fail fast while the server is unreachable: the background
+                // loop keeps reconnecting, callers must not block on it.
+                if (_firstConnectAttemptCompleted && !_connected)
                 {
                     return -1;
                 }
+
+                if (DateTime.UtcNow > deadline)
+                {
+                    return -1;
+                }
+
+                Thread.Sleep(100);
             }
-            return 0;
+            return -1;
         }
 
         private void init()
@@ -224,64 +250,115 @@ namespace TVHeadEnd
         //    return stream;
         //}
 
-        private void ensureConnection()
+        private void StartConnectionLoop()
         {
             init();
 
-            //_logger.LogDebug("[TVHclient] HTSConnectionHandler.ensureConnection");
-            if (_htsConnection == null || _htsConnection.needsRestart())
-            {
-                _logger.LogDebug("[TVHclient] HTSConnectionHandler.ensureConnection: create new HTS connection");
-                Version version = Assembly.GetEntryAssembly().GetName().Version;
-                _htsConnection = new HTSConnectionAsync(this, "TVHclient4Emby-" + version.ToString(), "" + HTSMessage.HTSP_VERSION, _loggerFactory);
-                _connected = false;
-            }
-
             lock (_lock)
             {
-                if (!_connected)
+                if (_connected || (_connectionTask != null && !_connectionTask.IsCompleted))
                 {
-                    _logger.LogDebug("[TVHclient] HTSConnectionHandler.ensureConnection: used connection parameters: " +
+                    return;
+                }
+
+                _connectionTask = Task.Run(() => ConnectionLoop());
+            }
+        }
+
+        private async Task ConnectionLoop()
+        {
+            int attempt = 0;
+            while (!_connected)
+            {
+                try
+                {
+                    HTSConnectionAsync connection;
+                    lock (_lock)
+                    {
+                        if (_htsConnection == null || _htsConnection.needsRestart())
+                        {
+                            _logger.LogDebug("[TVHclient] HTSConnectionHandler.ConnectionLoop: create new HTS connection");
+                            Version version = Assembly.GetEntryAssembly().GetName().Version;
+                            _htsConnection = new HTSConnectionAsync(this, "TVHclient4Emby-" + version.ToString(), "" + HTSMessage.HTSP_VERSION, _loggerFactory);
+                        }
+                        connection = _htsConnection;
+                    }
+
+                    _logger.LogDebug("[TVHclient] HTSConnectionHandler.ConnectionLoop: used connection parameters: " +
                         "TVH Server = '{servername}'; HTTP Port = '{httpport}'; HTSP Port = '{htspport}'; Web-Root = '{webroot}'; " +
                         "User = '{user}'; Password set = '{passexists}'",
                         _tvhServerName, _httpPort, _htspPort, _webRoot, _userName, (_password.Length > 0));
 
-                    _htsConnection.open(_tvhServerName, _htspPort);
-                    _connected = _htsConnection.authenticate(_userName, _password);
+                    connection.open(_tvhServerName, _htspPort, ConnectTimeout);
 
-                    _logger.LogDebug("[TVHclient] HTSConnectionHandler.ensureConnection: connection established {c}", _connected);
+                    if (connection.authenticate(_userName, _password))
+                    {
+                        _connected = true;
+                        _logger.LogInformation("[TVHclient] HTSConnectionHandler.ConnectionLoop: connection to {servername}:{htspport} established",
+                            _tvhServerName, _htspPort);
+                        return;
+                    }
+
+                    _logger.LogError("[TVHclient] HTSConnectionHandler.ConnectionLoop: authentication failed");
+                    connection.stop();
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogError("[TVHclient] HTSConnectionHandler.ConnectionLoop: can't connect to {servername}:{htspport} - {message}",
+                        _tvhServerName, _htspPort, ex.Message);
+                }
+                finally
+                {
+                    _firstConnectAttemptCompleted = true;
+                }
+
+                attempt++;
+                int delaySeconds = Math.Min(MaxRetryDelaySeconds, 5 << Math.Min(attempt - 1, 4));
+                _logger.LogDebug("[TVHclient] HTSConnectionHandler.ConnectionLoop: next connection attempt in {delay}s", delaySeconds);
+                await Task.Delay(TimeSpan.FromSeconds(delaySeconds)).ConfigureAwait(false);
             }
         }
 
         public void SendMessage(HTSMessage message, HTSResponseHandler responseHandler)
         {
-            ensureConnection();
-            _htsConnection.sendMessage(message, responseHandler);
+            StartConnectionLoop();
+
+            HTSConnectionAsync connection = _htsConnection;
+            if (!_connected || connection == null)
+            {
+                throw new InvalidOperationException("[TVHclient] HTSConnectionHandler.SendMessage: not connected to TVH server '"
+                    + _tvhServerName + ":" + _htspPort + "'");
+            }
+
+            connection.sendMessage(message, responseHandler);
         }
 
         public String GetServername()
         {
-            ensureConnection();
-            return _htsConnection.getServername();
+            StartConnectionLoop();
+            HTSConnectionAsync connection = _htsConnection;
+            return (_connected && connection != null) ? connection.getServername() : null;
         }
 
         public String GetServerVersion()
         {
-            ensureConnection();
-            return _htsConnection.getServerversion();
+            StartConnectionLoop();
+            HTSConnectionAsync connection = _htsConnection;
+            return (_connected && connection != null) ? connection.getServerversion() : null;
         }
 
         public int GetServerProtocolVersion()
         {
-            ensureConnection();
-            return _htsConnection.getServerProtocolVersion();
+            StartConnectionLoop();
+            HTSConnectionAsync connection = _htsConnection;
+            return (_connected && connection != null) ? connection.getServerProtocolVersion() : -1;
         }
 
         public String GetDiskSpace()
         {
-            ensureConnection();
-            return _htsConnection.getDiskspace();
+            StartConnectionLoop();
+            HTSConnectionAsync connection = _htsConnection;
+            return (_connected && connection != null) ? connection.getDiskspace() : null;
         }
 
         public Task<IEnumerable<ChannelInfo>> BuildChannelInfos(CancellationToken cancellationToken)
@@ -337,11 +414,18 @@ namespace TVHeadEnd
         public void onError(Exception ex)
         {
             _logger.LogError(ex, "[TVHclient] HTSConnectionHandler: HTSP error");
-            _htsConnection.stop();
-            _htsConnection = null;
-            _connected = false;
+            lock (_lock)
+            {
+                if (_htsConnection != null)
+                {
+                    _htsConnection.stop();
+                    _htsConnection = null;
+                }
+                _connected = false;
+                _initialLoadFinished = false;
+            }
             //_liveTvService.sendDataSourceChanged();
-            ensureConnection();
+            StartConnectionLoop();
         }
 
         public void onMessage(HTSMessage response)
