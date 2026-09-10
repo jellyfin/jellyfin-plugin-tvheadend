@@ -27,6 +27,7 @@ namespace TVHeadEnd.Configuration
             HideRecordingsChannel = false;
             EnableSubsMaudios = false;
             ForceDeinterlace = false;
+            AnalyzeDurationMs = 2000;
         }
 
         public string TVH_ServerName { get; set; }
@@ -54,5 +55,7 @@ namespace TVHeadEnd.Configuration
         public bool EnableSubsMaudios { get; set; }
 
         public bool ForceDeinterlace { get; set; }
+
+        public int AnalyzeDurationMs { get; set; }
     }
 }

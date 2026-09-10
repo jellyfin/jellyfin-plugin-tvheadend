@@ -60,6 +60,10 @@
                     </label>
                     <div class="fieldDescription checkboxFieldDescription">Note: Changing this requires a server restart.</div>
                 </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="number" id="txtAnalyzeDurationMs" min="100" max="10000" label="Stream analysis limit (ms)" />
+                    <div class="fieldDescription">How long ffmpeg may spend working out what a channel contains before playback starts. It uses all of it, because DVB subtitle streams send nothing while the analysis runs, so lowering this shortens every channel change. Streams start being missed below roughly 200 ms.</div>
+                </div>
                 <div>
                     <button is="emby-button" type="submit" class="raised button-submit block">
                         <span>Save</span>

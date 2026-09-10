@@ -428,7 +428,7 @@ namespace TVHeadEnd
                 livetvasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Path;
                 livetvasset.Protocol = MediaProtocol.Http;
                 livetvasset.RequiredHttpHeaders = _htsConnectionHandler.GetHeaders();
-                livetvasset.AnalyzeDurationMs = 2000;
+                livetvasset.AnalyzeDurationMs = Plugin.Instance.Configuration.AnalyzeDurationMs;
                 livetvasset.SupportsDirectStream = false;
                 livetvasset.RequiresClosing = true;
                 livetvasset.SupportsProbing = false;
@@ -466,7 +466,7 @@ namespace TVHeadEnd
                     Id = channelId,
                     Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Url,
                     Protocol = MediaProtocol.Http,
-                    AnalyzeDurationMs = 2000,
+                    AnalyzeDurationMs = Plugin.Instance.Configuration.AnalyzeDurationMs,
                     SupportsDirectStream = false,
                     SupportsProbing = false,
                     Container = "mpegts",
