@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -40,6 +41,15 @@ namespace TVHeadEnd
         private readonly AccessTicketHandler _channelTicketHandler;
 
         private readonly ILogger<LiveTvService> _logger;
+
+        /// <summary>
+        /// How long a probe result stays usable. Jellyfin asks for the media sources and
+        /// then opens the stream a few seconds later; without this both calls probe the
+        /// same channel, and each probe costs a TVHeadend subscription.
+        /// </summary>
+        private readonly TimeSpan _probeCacheDuration = TimeSpan.FromSeconds(30);
+
+        private readonly ConcurrentDictionary<string, (DateTime ProbedAt, MediaInfo Info)> _probeCache = new();
 
         public LiveTvService(ILoggerFactory loggerFactory, IMediaEncoder mediaEncoder, HTSConnectionHandler connectionHandler)
         {
@@ -439,7 +449,7 @@ namespace TVHeadEnd
                 // Probe the asset stream to determine available sub-streams
                 string livetvasset_probeUrl = string.Empty + livetvasset.Path;
                 string livetvasset_source = "LiveTV";
-                await ProbeStream(livetvasset, livetvasset_probeUrl, livetvasset_source, cancellationToken).ConfigureAwait(false);
+                await ProbeStream(livetvasset, livetvasset_probeUrl, livetvasset_source, channelId, cancellationToken).ConfigureAwait(false);
 
                 // If enabled, force video deinterlacing for channels
                 if (_htsConnectionHandler.GetForceDeinterlace())
@@ -492,8 +502,20 @@ namespace TVHeadEnd
             }
         }
 
-        private async Task ProbeStream(MediaSourceInfo mediaSourceInfo, string probeUrl, string source, CancellationToken cancellationToken)
+        private async Task ProbeStream(MediaSourceInfo mediaSourceInfo, string probeUrl, string source, string cacheKey, CancellationToken cancellationToken)
         {
+            var originalRuntime = mediaSourceInfo.RunTimeTicks;
+
+            if (_probeCache.TryGetValue(cacheKey, out var cached) && DateTime.UtcNow - cached.ProbedAt < _probeCacheDuration)
+            {
+                _logger.LogInformation(
+                    "Reusing the {Source} probe taken {Age} seconds ago, no extra subscription needed",
+                    source,
+                    (int)(DateTime.UtcNow - cached.ProbedAt).TotalSeconds);
+                ApplyMediaInfo(mediaSourceInfo, cached.Info, originalRuntime);
+                return;
+            }
+
             _logger.LogInformation("Probe stream for {Source}", source);
             _logger.LogInformation("Probe URL: {ProbeUrl}", probeUrl);
 
@@ -504,7 +526,6 @@ namespace TVHeadEnd
                 ExtractChapters = false,
             };
 
-            var originalRuntime = mediaSourceInfo.RunTimeTicks;
             Stopwatch stopWatch = new Stopwatch();
             stopWatch.Start();
             MediaInfo info = await _mediaEncoder.GetMediaInfo(req, cancellationToken).ConfigureAwait(false);
@@ -515,72 +536,80 @@ namespace TVHeadEnd
 
             if (info != null)
             {
-                _logger.LogDebug("Probe returned:");
-
-                mediaSourceInfo.Bitrate = info.Bitrate;
-                _logger.LogDebug("        BitRate:                    {BitRate}", info.Bitrate);
-
-                mediaSourceInfo.Container = info.Container;
-                _logger.LogDebug("        Container:                  {Container}", info.Container);
-
-                mediaSourceInfo.MediaStreams = info.MediaStreams;
-                _logger.LogDebug("        MediaStreams:               ");
-                LogMediaStreamList(info.MediaStreams, "                       ");
-
-                mediaSourceInfo.RunTimeTicks = info.RunTimeTicks;
-                _logger.LogDebug("        RunTimeTicks:               {RunTimeTicks}", info.RunTimeTicks);
-
-                mediaSourceInfo.Size = info.Size;
-                _logger.LogDebug("        Size:                       {Size}", info.Size);
-
-                mediaSourceInfo.Timestamp = info.Timestamp;
-                _logger.LogDebug("        Timestamp:                  {Timestamp}", info.Timestamp);
-
-                mediaSourceInfo.Video3DFormat = info.Video3DFormat;
-                _logger.LogDebug("        Video3DFormat:              {Video3DFormat}", info.Video3DFormat);
-
-                mediaSourceInfo.VideoType = info.VideoType;
-                _logger.LogDebug("        VideoType:                  {VideoType}", info.VideoType);
-
-                mediaSourceInfo.RequiresClosing = true;
-                _logger.LogDebug("        RequiresClosing:            {RequiresClosing}", info.RequiresClosing);
-
-                mediaSourceInfo.RequiresOpening = true;
-                _logger.LogDebug("        RequiresOpening:            {RequiresOpening}", info.RequiresOpening);
-
-                mediaSourceInfo.SupportsDirectPlay = true;
-                _logger.LogDebug("        SupportsDirectPlay:         {SupportsDirectPlay}", info.SupportsDirectPlay);
-
-                mediaSourceInfo.SupportsDirectStream = true;
-                _logger.LogDebug("        SupportsDirectStream:       {SupportsDirectStream}", info.SupportsDirectStream);
-
-                mediaSourceInfo.SupportsTranscoding = true;
-                _logger.LogDebug("        SupportsTranscoding:        {SupportsTranscoding}", info.SupportsTranscoding);
-
-                mediaSourceInfo.DefaultSubtitleStreamIndex = null;
-                _logger.LogDebug("        DefaultSubtitleStreamIndex: n/a");
-
-                if (!originalRuntime.HasValue)
-                {
-                    mediaSourceInfo.RunTimeTicks = null;
-                    _logger.LogDebug("        Original runtime:           n/a");
-                }
-
-                var audioStream = mediaSourceInfo.MediaStreams.FirstOrDefault(i => i.Type == MediaStreamType.Audio);
-                if (audioStream == null || audioStream.Index == -1)
-                {
-                    mediaSourceInfo.DefaultAudioStreamIndex = null;
-                    _logger.LogDebug("        DefaultAudioStreamIndex:    n/a");
-                }
-                else
-                {
-                    mediaSourceInfo.DefaultAudioStreamIndex = audioStream.Index;
-                    _logger.LogDebug("        DefaultAudioStreamIndex:    '{DefaultAudioStreamIndex}'", info.DefaultAudioStreamIndex);
-                }
+                _probeCache[cacheKey] = (DateTime.UtcNow, info);
+                ApplyMediaInfo(mediaSourceInfo, info, originalRuntime);
             }
             else
             {
                 _logger.LogError("Cannot probe {Source} stream", source);
+            }
+        }
+
+        private void ApplyMediaInfo(MediaSourceInfo mediaSourceInfo, MediaInfo info, long? originalRuntime)
+        {
+            _logger.LogDebug("Probe returned:");
+
+            mediaSourceInfo.Bitrate = info.Bitrate;
+            _logger.LogDebug("        BitRate:                    {BitRate}", info.Bitrate);
+
+            mediaSourceInfo.Container = info.Container;
+            _logger.LogDebug("        Container:                  {Container}", info.Container);
+
+            // Copy the list: one probe result is applied to more than one media source, and
+            // the deinterlace override in GetChannelStream mutates the streams it is given.
+            mediaSourceInfo.MediaStreams = [.. info.MediaStreams];
+            _logger.LogDebug("        MediaStreams:               ");
+            LogMediaStreamList(info.MediaStreams, "                       ");
+
+            mediaSourceInfo.RunTimeTicks = info.RunTimeTicks;
+            _logger.LogDebug("        RunTimeTicks:               {RunTimeTicks}", info.RunTimeTicks);
+
+            mediaSourceInfo.Size = info.Size;
+            _logger.LogDebug("        Size:                       {Size}", info.Size);
+
+            mediaSourceInfo.Timestamp = info.Timestamp;
+            _logger.LogDebug("        Timestamp:                  {Timestamp}", info.Timestamp);
+
+            mediaSourceInfo.Video3DFormat = info.Video3DFormat;
+            _logger.LogDebug("        Video3DFormat:              {Video3DFormat}", info.Video3DFormat);
+
+            mediaSourceInfo.VideoType = info.VideoType;
+            _logger.LogDebug("        VideoType:                  {VideoType}", info.VideoType);
+
+            mediaSourceInfo.RequiresClosing = true;
+            _logger.LogDebug("        RequiresClosing:            {RequiresClosing}", true);
+
+            mediaSourceInfo.RequiresOpening = true;
+            _logger.LogDebug("        RequiresOpening:            {RequiresOpening}", true);
+
+            mediaSourceInfo.SupportsDirectPlay = true;
+            _logger.LogDebug("        SupportsDirectPlay:         {SupportsDirectPlay}", true);
+
+            mediaSourceInfo.SupportsDirectStream = true;
+            _logger.LogDebug("        SupportsDirectStream:       {SupportsDirectStream}", true);
+
+            mediaSourceInfo.SupportsTranscoding = true;
+            _logger.LogDebug("        SupportsTranscoding:        {SupportsTranscoding}", true);
+
+            mediaSourceInfo.DefaultSubtitleStreamIndex = null;
+            _logger.LogDebug("        DefaultSubtitleStreamIndex: n/a");
+
+            if (!originalRuntime.HasValue)
+            {
+                mediaSourceInfo.RunTimeTicks = null;
+                _logger.LogDebug("        Original runtime:           n/a");
+            }
+
+            var audioStream = mediaSourceInfo.MediaStreams.FirstOrDefault(i => i.Type == MediaStreamType.Audio);
+            if (audioStream == null || audioStream.Index == -1)
+            {
+                mediaSourceInfo.DefaultAudioStreamIndex = null;
+                _logger.LogDebug("        DefaultAudioStreamIndex:    n/a");
+            }
+            else
+            {
+                mediaSourceInfo.DefaultAudioStreamIndex = audioStream.Index;
+                _logger.LogDebug("        DefaultAudioStreamIndex:    '{DefaultAudioStreamIndex}'", audioStream.Index);
             }
         }
 
