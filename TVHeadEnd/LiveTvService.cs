@@ -523,9 +523,13 @@ namespace TVHeadEnd
                 mediaSourceInfo.Container = info.Container;
                 _logger.LogDebug("        Container:                  {Container}", info.Container);
 
-                mediaSourceInfo.MediaStreams = info.MediaStreams;
+                // Data streams are left out. FFmpeg surfaces the DVB EPG table, PID 0x12, as
+                // a stream called "epg", and no container Jellyfin produces can carry it. If
+                // Jellyfin selects it as an output stream the muxer gives up with "Could not
+                // find tag for codec epg in stream #0" and playback never starts.
+                mediaSourceInfo.MediaStreams = [.. info.MediaStreams.Where(i => i.Type != MediaStreamType.Data)];
                 _logger.LogDebug("        MediaStreams:               ");
-                LogMediaStreamList(info.MediaStreams, "                       ");
+                LogMediaStreamList(mediaSourceInfo.MediaStreams, "                       ");
 
                 mediaSourceInfo.RunTimeTicks = info.RunTimeTicks;
                 _logger.LogDebug("        RunTimeTicks:               {RunTimeTicks}", info.RunTimeTicks);
