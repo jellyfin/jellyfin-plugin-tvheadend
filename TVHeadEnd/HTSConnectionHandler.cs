@@ -228,12 +228,10 @@ namespace TVHeadEnd
         /// <returns>The HTTP base URL.</returns>
         private string BuildHttpBaseUrl()
         {
-            if (_enableSubsMaudios)
-            {
-                // Use HTTP basic auth instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
-                return "http://" + _userName + ":" + _password + "@" + _tvhServerName + ":" + _httpPort + _webRoot;
-            }
-
+            // Credentials must never be part of the URL. Jellyfin logs the media source path
+            // and the full ffmpeg command line, so a password placed here is written to the
+            // server log in plain text. TVHeadend's tickets are used for authentication
+            // instead, and a fresh one is requested every time a stream is opened.
             return "http://" + _tvhServerName + ":" + _httpPort + _webRoot;
         }
 
