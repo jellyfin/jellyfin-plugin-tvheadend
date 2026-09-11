@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.LiveTv;
+using MediaBrowser.Model.Plugins;
 using Microsoft.Extensions.Logging;
 using TVHeadEnd.DataHelper;
 using TVHeadEnd.HTSP;
@@ -42,6 +43,7 @@ namespace TVHeadEnd
         private volatile bool _initialLoadFinished;
         private volatile bool _connected;
         private volatile bool _configured;
+        private volatile bool _watchingConfiguration;
 
         private HTSConnectionAsync? _htsConnection;
         private int _priority;
@@ -105,6 +107,14 @@ namespace TVHeadEnd
 
         private void Init()
         {
+            if (!_watchingConfiguration)
+            {
+                // Reached only once Plugin.Instance exists, which is not the case while
+                // dependency injection is building this handler.
+                Plugin.Instance.ConfigurationChanged += OnConfigurationChanged;
+                _watchingConfiguration = true;
+            }
+
             if (_configured == true)
             {
                 return;
@@ -220,6 +230,38 @@ namespace TVHeadEnd
 
             _webRoot = resolved;
             _httpBaseUrl = BuildHttpBaseUrl();
+        }
+
+        private void OnConfigurationChanged(object? sender, BasePluginConfiguration configuration)
+        {
+            var config = Plugin.Instance.Configuration;
+
+            // Only the settings that describe where and as whom to connect are worth a new
+            // connection. Everything else - profile, padding, channel type, the feature
+            // flags - is read on use, so an established connection keeps serving.
+            var reconnect = !string.Equals(_tvhServerName, config.TVH_ServerName.Trim(), StringComparison.Ordinal)
+                || _httpPort != config.HTTP_Port
+                || _htspPort != config.HTSP_Port
+                || !string.Equals(_userName, config.Username.Trim(), StringComparison.Ordinal)
+                || !string.Equals(_password, config.Password.Trim(), StringComparison.Ordinal);
+
+            _configured = false;
+
+            if (!reconnect)
+            {
+                _logger.LogInformation("[TVHclient] Configuration changed, re-reading it and keeping the connection");
+                return;
+            }
+
+            _logger.LogInformation("[TVHclient] Connection settings changed, reconnecting to TVHeadend");
+
+            lock (_lock)
+            {
+                _htsConnection?.Stop();
+                _htsConnection?.Dispose();
+                _htsConnection = null;
+                _connected = false;
+            }
         }
 
         /// <summary>
