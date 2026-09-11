@@ -60,6 +60,10 @@
                     </label>
                     <div class="fieldDescription checkboxFieldDescription">Note: Changing this requires a server restart.</div>
                 </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="number" id="txtFallbackBitrate" min="0" max="100000" label="Fallback bitrate (kb/s)" />
+                    <div class="fieldDescription">Used when the bitrate of a channel is not known. Without it Jellyfin estimates one from the resolution and frame rate, which on a 50 fps broadcast lands in the hundreds of megabits and can stop a hardware encoder from starting at all. Something around 8000 suits HD broadcast television. Leave at 0 to declare nothing, as before.</div>
+                </div>
                 <div>
                     <button is="emby-button" type="submit" class="raised button-submit block">
                         <span>Save</span>

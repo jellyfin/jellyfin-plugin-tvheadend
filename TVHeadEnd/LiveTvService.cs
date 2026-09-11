@@ -469,6 +469,7 @@ namespace TVHeadEnd
                     AnalyzeDurationMs = 2000,
                     SupportsDirectStream = false,
                     SupportsProbing = false,
+                    Bitrate = FallbackBitrate(),
                     Container = "mpegts",
                     MediaStreams = new List<MediaStream>
                     {
@@ -490,6 +491,15 @@ namespace TVHeadEnd
                     }
                 };
             }
+        }
+
+        private static int? FallbackBitrate()
+        {
+            // Left unset, Jellyfin has to guess a figure from the resolution and frame rate,
+            // and the guess is wildly high on broadcast material.
+            var kbps = Plugin.Instance.Configuration.FallbackBitrate;
+
+            return kbps > 0 ? kbps * 1000 : null;
         }
 
         private async Task ProbeStream(MediaSourceInfo mediaSourceInfo, string probeUrl, string source, CancellationToken cancellationToken)
@@ -517,7 +527,7 @@ namespace TVHeadEnd
             {
                 _logger.LogDebug("Probe returned:");
 
-                mediaSourceInfo.Bitrate = info.Bitrate;
+                mediaSourceInfo.Bitrate = info.Bitrate > 0 ? info.Bitrate : FallbackBitrate();
                 _logger.LogDebug("        BitRate:                    {BitRate}", info.Bitrate);
 
                 mediaSourceInfo.Container = info.Container;
