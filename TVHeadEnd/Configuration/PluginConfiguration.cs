@@ -21,6 +21,8 @@ namespace TVHeadEnd.Configuration
             Password = string.Empty;
             Priority = 5;
             Profile = string.Empty;
+            StreamingProfile = string.Empty;
+            Container = "mpegts";
             Pre_Padding = 0;
             Post_Padding = 0;
             ChannelType = "Ignore";
@@ -42,6 +44,10 @@ namespace TVHeadEnd.Configuration
         public int Priority { get; set; }
 
         public string Profile { get; set; }
+
+        public string StreamingProfile { get; set; }
+
+        public string Container { get; set; }
 
         public int Pre_Padding { get; set; }
 
