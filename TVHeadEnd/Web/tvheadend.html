@@ -55,6 +55,13 @@
                 </div>
                 <div class="checkboxContainer checkboxContainer-withDescription">
                     <label>
+                        <input is="emby-checkbox" type="checkbox" id="chkOfferSubtitles" />
+                        <span>Offer the subtitle tracks of live channels.</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">Turn this off if selecting a subtitle track ends playback. Jellyfin cannot extract subtitles from a live source, so the tracks are listed but cannot be served.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
                         <input is="emby-checkbox" type="checkbox" id="chkForceDeinterlace" />
                         <span>Force video deinterlacing for all channels and recordings. (Experimental)</span>
                     </label>
