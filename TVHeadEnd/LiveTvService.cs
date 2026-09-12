@@ -492,6 +492,20 @@ namespace TVHeadEnd
             }
         }
 
+        private static bool KeepStream(MediaStream stream)
+        {
+            if (stream.Type != MediaStreamType.Subtitle)
+            {
+                return true;
+            }
+
+            // Jellyfin cannot extract subtitles from a live source: the subtitle cache is
+            // keyed on a GUID media source id, which Live TV does not have, and the path
+            // that leads there assumes a source with an end. Listing tracks that end
+            // playback when picked is worse than not listing them.
+            return Plugin.Instance.Configuration.OfferSubtitles;
+        }
+
         private async Task ProbeStream(MediaSourceInfo mediaSourceInfo, string probeUrl, string source, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Probe stream for {Source}", source);
@@ -523,9 +537,9 @@ namespace TVHeadEnd
                 mediaSourceInfo.Container = info.Container;
                 _logger.LogDebug("        Container:                  {Container}", info.Container);
 
-                mediaSourceInfo.MediaStreams = info.MediaStreams;
+                mediaSourceInfo.MediaStreams = [.. info.MediaStreams.Where(i => KeepStream(i))];
                 _logger.LogDebug("        MediaStreams:               ");
-                LogMediaStreamList(info.MediaStreams, "                       ");
+                LogMediaStreamList(mediaSourceInfo.MediaStreams, "                       ");
 
                 mediaSourceInfo.RunTimeTicks = info.RunTimeTicks;
                 _logger.LogDebug("        RunTimeTicks:               {RunTimeTicks}", info.RunTimeTicks);

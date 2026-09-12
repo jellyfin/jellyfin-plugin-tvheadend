@@ -20,6 +20,7 @@ export default function (view, params) {
             page.querySelector('#chkHideRecordingsChannel').checked = config.HideRecordingsChannel || false;
             page.querySelector('#chkEnableSubsMaudios').checked = config.EnableSubsMaudios || false;
             page.querySelector('#chkForceDeinterlace').checked = config.ForceDeinterlace || false;
+            page.querySelector('#chkOfferSubtitles').checked = config.OfferSubtitles !== false;
             Dashboard.hideLoadingMsg();
         });
     });
@@ -41,6 +42,7 @@ export default function (view, params) {
             config.HideRecordingsChannel = form.querySelector('#chkHideRecordingsChannel').checked;
             config.EnableSubsMaudios = form.querySelector('#chkEnableSubsMaudios').checked;
             config.ForceDeinterlace = form.querySelector('#chkForceDeinterlace').checked;
+            config.OfferSubtitles = form.querySelector('#chkOfferSubtitles').checked;
             ApiClient.updatePluginConfiguration(TVHclientConfigurationPageVar.pluginUniqueId, config).then(Dashboard.processPluginConfigurationUpdateResult);
         });
         return false;
