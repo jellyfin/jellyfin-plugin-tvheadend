@@ -13,6 +13,13 @@ namespace TVHeadEnd
     public class HTSConnectionHandler : IHTSConnectionListener, IDisposable
     {
         /// <summary>
+        /// The highest fallback bitrate accepted, in kb/s. The field on the settings page is
+        /// bounded, a value written straight to the configuration file is not, and kb/s times
+        /// 1000 overflows a signed int above roughly 2.1 Gb/s.
+        /// </summary>
+        private const int MaxFallbackBitrateKbps = 1_000_000;
+
+        /// <summary>
         /// DVR_PRIO_IMPORTANT - the lowest value TVHeadend accepts for a recording priority.
         /// </summary>
         private const int DvrPriorityImportant = 0;
@@ -56,6 +63,7 @@ namespace TVHeadEnd
         private string _password = string.Empty;
         private bool _enableSubsMaudios;
         private bool _forceDeinterlace;
+        private int _fallbackBitrate;
 
         private LiveTvService? _liveTvService;
 
@@ -142,6 +150,7 @@ namespace TVHeadEnd
             _channelType = config.ChannelType.Trim();
             _enableSubsMaudios = config.EnableSubsMaudios;
             _forceDeinterlace = config.ForceDeinterlace;
+            _fallbackBitrate = config.FallbackBitrate;
 
             if (_priority < DvrPriorityImportant || _priority > DvrPriorityNotSet)
             {
@@ -411,6 +420,18 @@ namespace TVHeadEnd
         {
             Init();
             return _forceDeinterlace;
+        }
+
+        public int? GetFallbackBitrate()
+        {
+            Init();
+
+            if (_fallbackBitrate <= 0)
+            {
+                return null;
+            }
+
+            return Math.Min(_fallbackBitrate, MaxFallbackBitrateKbps) * 1000;
         }
 
         public Task<IEnumerable<MyRecordingInfo>> BuildDvrInfos(CancellationToken cancellationToken)
