@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.LiveTv;
 using Microsoft.Extensions.Logging;
+using TVHeadEnd.Configuration;
 using TVHeadEnd.DataHelper;
 using TVHeadEnd.HTSP;
 
@@ -37,25 +38,16 @@ namespace TVHeadEnd
         private readonly DvrDataHelper _dvrDataHelper;
         private readonly AutorecDataHelper _autorecDataHelper;
 
-        private readonly Dictionary<string, string> _headers = new Dictionary<string, string>();
-
         private volatile bool _initialLoadFinished;
         private volatile bool _connected;
-        private volatile bool _configured;
 
+        // Jellyfin replaces the configuration instance on every save, so its identity says whether these are current.
+        private volatile Settings? _settings;
+
+        // Connection state, written under _lock.
         private HTSConnectionAsync? _htsConnection;
-        private int _priority;
-        private string _profile = string.Empty;
-        private string _httpBaseUrl = string.Empty;
-        private string _channelType = string.Empty;
-        private string _tvhServerName = string.Empty;
-        private int _httpPort;
-        private int _htspPort;
+        private Settings? _connectedWith;
         private string _webRoot = string.Empty;
-        private string _userName = string.Empty;
-        private string _password = string.Empty;
-        private bool _enableSubsMaudios;
-        private bool _forceDeinterlace;
 
         private LiveTvService? _liveTvService;
 
@@ -71,7 +63,7 @@ namespace TVHeadEnd
             _dvrDataHelper = new DvrDataHelper(loggerFactory.CreateLogger<DvrDataHelper>());
             _autorecDataHelper = new AutorecDataHelper(loggerFactory.CreateLogger<AutorecDataHelper>());
 
-            // The channel type is applied in Init(), once the configuration has been read.
+            // The channel type is applied once the configuration has been read.
             // ChannelDataHelper defaults to "Ignore" until then.
         }
 
@@ -103,18 +95,28 @@ namespace TVHeadEnd
             return 0;
         }
 
-        private void Init()
+        private Settings CurrentSettings()
         {
-            if (_configured == true)
+            var config = Plugin.Instance.Configuration;
+            var settings = _settings;
+
+            if (settings is not null && ReferenceEquals(settings.Source, config))
             {
-                return;
+                return settings;
             }
 
-            _logger.LogDebug("[TVHclient] HTSConnectionHandler - Init()");
+            settings = ReadSettings(config);
+            _settings = settings;
 
-            var config = Plugin.Instance.Configuration;
+            // The constructor runs before any configuration exists, so it is handed over here.
+            _channelDataHelper.SetChannelType4Other(settings.ChannelType);
 
-            _logger.LogDebug("[TVHclient] HTSConnectionHandler - Config initialized");
+            return settings;
+        }
+
+        private Settings ReadSettings(PluginConfiguration config)
+        {
+            _logger.LogDebug("[TVHclient] HTSConnectionHandler: reading the configuration");
 
             if (string.IsNullOrEmpty(config.TVH_ServerName))
             {
@@ -137,41 +139,33 @@ namespace TVHeadEnd
                 throw new InvalidOperationException(Message);
             }
 
-            _priority = config.Priority;
-            _profile = config.Profile.Trim();
-            _channelType = config.ChannelType.Trim();
-            _enableSubsMaudios = config.EnableSubsMaudios;
-            _forceDeinterlace = config.ForceDeinterlace;
+            var priority = config.Priority;
 
-            if (_priority < DvrPriorityImportant || _priority > DvrPriorityNotSet)
+            if (priority < DvrPriorityImportant || priority > DvrPriorityNotSet)
             {
-                _priority = DvrPriorityNormal;
+                priority = DvrPriorityNormal;
                 _logger.LogWarning(
-                    "[TVHclient] HTSConnectionHandler.Init: priority {ConfiguredPriority} is out of range [{Lowest}-{Highest}] - using {Fallback} (normal)",
+                    "[TVHclient] HTSConnectionHandler: priority {ConfiguredPriority} is out of range [{Lowest}-{Highest}] - using {Fallback} (normal)",
                     config.Priority,
                     DvrPriorityImportant,
                     DvrPriorityNotSet,
                     DvrPriorityNormal);
             }
 
-            _tvhServerName = config.TVH_ServerName.Trim();
-            _httpPort = config.HTTP_Port;
-            _htspPort = config.HTSP_Port;
-
-            _userName = config.Username.Trim();
-            _password = config.Password.Trim();
-
-            _httpBaseUrl = BuildHttpBaseUrl();
-
-            string authInfo = _userName + ":" + _password;
-            authInfo = Convert.ToBase64String(Encoding.Default.GetBytes(authInfo));
-            _headers["Authorization"] = "Basic " + authInfo;
-
-            // The constructor runs before any configuration is available, so the channel type
-            // has to be handed to the data helper here, once it has actually been read.
-            _channelDataHelper.SetChannelType4Other(_channelType);
-
-            _configured = true;
+            return new Settings
+            {
+                Source = config,
+                ServerName = config.TVH_ServerName.Trim(),
+                HttpPort = config.HTTP_Port,
+                HtspPort = config.HTSP_Port,
+                UserName = config.Username.Trim(),
+                Password = config.Password.Trim(),
+                Priority = priority,
+                Profile = config.Profile.Trim(),
+                ChannelType = config.ChannelType.Trim(),
+                EnableSubsMaudios = config.EnableSubsMaudios,
+                ForceDeinterlace = config.ForceDeinterlace,
+            };
         }
 
         /// <summary>
@@ -201,8 +195,7 @@ namespace TVHeadEnd
         /// </summary>
         /// <remarks>
         /// The server knows its own path prefix, so it is the only source for this value; an
-        /// absent field means TVHeadend is served from the root. The HTTP URLs are rebuilt
-        /// because they are assembled in Init(), before a connection exists.
+        /// absent field means TVHeadend is served from the root.
         /// </remarks>
         /// <param name="reportedWebRoot">The web root from the hello response.</param>
         private void ApplyServerWebRoot(string? reportedWebRoot)
@@ -219,22 +212,21 @@ namespace TVHeadEnd
                 resolved);
 
             _webRoot = resolved;
-            _httpBaseUrl = BuildHttpBaseUrl();
         }
 
         /// <summary>
         /// Builds the TVHeadend HTTP base URL from the current settings.
         /// </summary>
         /// <returns>The HTTP base URL.</returns>
-        private string BuildHttpBaseUrl()
+        private string BuildHttpBaseUrl(Settings settings)
         {
-            if (_enableSubsMaudios)
+            if (settings.EnableSubsMaudios)
             {
                 // Use HTTP basic auth instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
-                return "http://" + _userName + ":" + _password + "@" + _tvhServerName + ":" + _httpPort + _webRoot;
+                return "http://" + settings.UserName + ":" + settings.Password + "@" + settings.ServerName + ":" + settings.HttpPort + _webRoot;
             }
 
-            return "http://" + _tvhServerName + ":" + _httpPort + _webRoot;
+            return "http://" + settings.ServerName + ":" + settings.HttpPort + _webRoot;
         }
 
         /// <summary>
@@ -278,14 +270,14 @@ namespace TVHeadEnd
         {
             EnsureConnection();
 
-            return "http://" + _userName + ":" + _password + "@" + _tvhServerName + ":" + _httpPort + _webRoot
+            var settings = CurrentSettings();
+
+            return "http://" + settings.UserName + ":" + settings.Password + "@" + settings.ServerName + ":" + settings.HttpPort + _webRoot
                 + "/" + relativePath.TrimStart('/');
         }
 
         public string? GetChannelImageUrl(string channelId)
         {
-            Init();
-
             _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: channelId: {Id}", channelId);
 
             return ResolveImageUrl(_channelDataHelper.GetChannelIcon4ChannelId(channelId));
@@ -293,7 +285,10 @@ namespace TVHeadEnd
 
         public Dictionary<string, string> GetHeaders()
         {
-            return new Dictionary<string, string>(_headers);
+            var settings = CurrentSettings();
+            var authInfo = Convert.ToBase64String(Encoding.Default.GetBytes(settings.UserName + ":" + settings.Password));
+
+            return new Dictionary<string, string> { { "Authorization", "Basic " + authInfo } };
         }
 
         // private static Stream ImageToPNGStream(Image image)
@@ -306,40 +301,54 @@ namespace TVHeadEnd
 
         private void EnsureConnection()
         {
-            Init();
-
-            // _logger.LogDebug("[TVHclient] HTSConnectionHandler.ensureConnection");
-            if (_htsConnection == null || _htsConnection.NeedsRestart())
-            {
-                _logger.LogDebug("[TVHclient] HTSConnectionHandler.ensureConnection: create new HTS connection");
-                // "clientversion" is the client's own version, not the protocol version -
-                // TVHeadend only reports it, but sending the HTSP number here was misleading.
-                Version? version = typeof(HTSConnectionHandler).Assembly.GetName().Version;
-                _htsConnection = new HTSConnectionAsync(
-                    this,
-                    "Jellyfin-TVHeadend",
-                    version?.ToString() ?? "unknown",
-                    _loggerFactory);
-                _connected = false;
-            }
+            var settings = CurrentSettings();
 
             lock (_lock)
             {
+                // A connection opened with settings that no longer apply has to go.
+                if (_htsConnection is not null
+                    && (_htsConnection.NeedsRestart() || !DescribesSameEndpoint(_connectedWith, settings)))
+                {
+                    _logger.LogInformation("[TVHclient] HTSConnectionHandler: dropping the connection, it no longer matches the settings");
+                    _htsConnection.Stop();
+                    _htsConnection.Dispose();
+                    _htsConnection = null;
+                    _connected = false;
+
+                    // The helpers hold data from that connection, so callers must wait for the new one.
+                    _initialLoadFinished = false;
+                }
+
+                if (_htsConnection is null)
+                {
+                    _logger.LogDebug("[TVHclient] HTSConnectionHandler.ensureConnection: create new HTS connection");
+                    // "clientversion" is the client's own version, not the protocol version -
+                    // TVHeadend only reports it, but sending the HTSP number here was misleading.
+                    Version? version = typeof(HTSConnectionHandler).Assembly.GetName().Version;
+                    _htsConnection = new HTSConnectionAsync(
+                        this,
+                        "Jellyfin-TVHeadend",
+                        version?.ToString() ?? "unknown",
+                        _loggerFactory);
+                    _connected = false;
+                }
+
                 if (!_connected)
                 {
                     _logger.LogDebug(
                         "[TVHclient] HTSConnectionHandler.ensureConnection: used connection parameters: " +
                         "TVH Server = '{Servername}'; HTTP Port = '{Httpport}'; HTSP Port = '{Htspport}'; Web-Root = '{Webroot}'; " +
                         "User = '{User}'; Password set = '{Passexists}'",
-                        _tvhServerName,
-                        _httpPort,
-                        _htspPort,
+                        settings.ServerName,
+                        settings.HttpPort,
+                        settings.HtspPort,
                         _webRoot,
-                        _userName,
-                        _password.Length > 0);
+                        settings.UserName,
+                        settings.Password.Length > 0);
 
-                    _htsConnection.Open(_tvhServerName, _htspPort);
-                    _connected = _htsConnection.Authenticate(_userName, _password);
+                    _htsConnection.Open(settings.ServerName, settings.HtspPort);
+                    _connected = _htsConnection.Authenticate(settings.UserName, settings.Password);
+                    _connectedWith = settings;
 
                     if (_connected)
                     {
@@ -358,6 +367,20 @@ namespace TVHeadEnd
                         HTSMessage.HtspVersion);
                 }
             }
+        }
+
+        private static bool DescribesSameEndpoint(Settings? left, Settings? right)
+        {
+            if (left is null || right is null)
+            {
+                return false;
+            }
+
+            return string.Equals(left.ServerName, right.ServerName, StringComparison.Ordinal)
+                && left.HttpPort == right.HttpPort
+                && left.HtspPort == right.HtspPort
+                && string.Equals(left.UserName, right.UserName, StringComparison.Ordinal)
+                && string.Equals(left.Password, right.Password, StringComparison.Ordinal);
         }
 
         public void SendMessage(HTSMessage message, IHTSResponseHandler responseHandler)
@@ -383,14 +406,12 @@ namespace TVHeadEnd
 
         public int GetPriority()
         {
-            Init();
-            return _priority;
+            return CurrentSettings().Priority;
         }
 
         public string GetProfile()
         {
-            Init();
-            return _profile;
+            return CurrentSettings().Profile;
         }
 
         public string GetHttpBaseUrl()
@@ -398,19 +419,17 @@ namespace TVHeadEnd
             // The web root is taken from the HTSP handshake, so a connection is required
             // before the base URL is known to be correct.
             EnsureConnection();
-            return _httpBaseUrl;
+            return BuildHttpBaseUrl(CurrentSettings());
         }
 
         public bool GetEnableSubsMaudios()
         {
-            Init();
-            return _enableSubsMaudios;
+            return CurrentSettings().EnableSubsMaudios;
         }
 
         public bool GetForceDeinterlace()
         {
-            Init();
-            return _forceDeinterlace;
+            return CurrentSettings().ForceDeinterlace;
         }
 
         public Task<IEnumerable<MyRecordingInfo>> BuildDvrInfos(CancellationToken cancellationToken)
@@ -430,12 +449,8 @@ namespace TVHeadEnd
 
         public void OnError(Exception ex)
         {
+            // The failed connection stopped itself, so EnsureConnection rebuilds on the next call.
             _logger.LogError(ex, "[TVHclient] HTSConnectionHandler: HTSP error");
-            _htsConnection?.Stop();
-            _htsConnection = null;
-            _connected = false;
-            // _liveTvService.sendDataSourceChanged();
-            EnsureConnection();
         }
 
         public void OnMessage(HTSMessage? response)
@@ -535,6 +550,32 @@ namespace TVHeadEnd
                 _htsConnection?.Dispose();
                 _htsConnection = null;
             }
+        }
+
+        private sealed class Settings
+        {
+            // The configuration instance these values were read from.
+            public required object Source { get; init; }
+
+            public required string ServerName { get; init; }
+
+            public required int HttpPort { get; init; }
+
+            public required int HtspPort { get; init; }
+
+            public required string UserName { get; init; }
+
+            public required string Password { get; init; }
+
+            public required int Priority { get; init; }
+
+            public required string Profile { get; init; }
+
+            public required string ChannelType { get; init; }
+
+            public required bool EnableSubsMaudios { get; init; }
+
+            public required bool ForceDeinterlace { get; init; }
         }
     }
 }
