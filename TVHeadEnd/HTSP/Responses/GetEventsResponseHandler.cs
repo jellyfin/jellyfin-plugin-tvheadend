@@ -110,7 +110,13 @@ namespace TVHeadEnd.HTSP.Responses
 
                     if (currEventMessage.ContainsField("serieslinkUri"))
                     {
-                        pi.SeriesId = currEventMessage.GetString("serieslinkUri");
+                        var seriesId = currEventMessage.GetString("serieslinkUri");
+
+                        if (!string.IsNullOrWhiteSpace(seriesId))
+                        {
+                            pi.SeriesId = seriesId;
+                            pi.IsSeries = true;
+                        }
                     }
 
                     if (currEventMessage.ContainsField("episodeNumber"))
