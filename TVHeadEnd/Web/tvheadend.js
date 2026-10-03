@@ -14,6 +14,7 @@ export default function (view, params) {
             page.querySelector('#txtPassword').value = config.Password || '';
             page.querySelector('#txtPriority').value = config.Priority || '5';
             page.querySelector('#txtProfile').value = config.Profile || '';
+            page.querySelector('#txtRecordingRoot').value = config.RecordingRoot || '';
             page.querySelector('#txtPrePadding').value = config.Pre_Padding || '0';
             page.querySelector('#txtPostPadding').value = config.Post_Padding || '0';
             page.querySelector('#selChannelType').value = config.ChannelType || 'Ignore';
@@ -36,6 +37,7 @@ export default function (view, params) {
             config.Password = form.querySelector('#txtPassword').value;
             config.Priority = form.querySelector('#txtPriority').value;
             config.Profile = form.querySelector('#txtProfile').value;
+            config.RecordingRoot = form.querySelector('#txtRecordingRoot').value.trim();
             config.Pre_Padding = form.querySelector('#txtPrePadding').value;
             config.Post_Padding = form.querySelector('#txtPostPadding').value;
             config.ChannelType = form.querySelector('#selChannelType').value;
