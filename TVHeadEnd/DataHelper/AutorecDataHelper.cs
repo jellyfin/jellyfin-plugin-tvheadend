@@ -133,15 +133,20 @@ namespace TVHeadEnd.DataHelper
                             if (m.ContainsField("retention"))
                             {
                                 int retentionInDays = m.GetInt("retention");
+                                DateTime now = DateTime.UtcNow;
+                                double maximumRetentionDays = (DateTime.MaxValue - now).TotalDays;
 
-                                if (DateTime.MaxValue.AddDays(-retentionInDays) < DateTime.Now)
+                                if (retentionInDays < 0 || retentionInDays > maximumRetentionDays)
                                 {
-                                    _logger.LogError("[TVHclient] AutorecDataHelper.buildAutorecInfos: change during 'EndDate' calculation: set retention value from '{Days}' to '365' days", retentionInDays);
-                                    sti.EndDate = DateTime.Now.AddDays(365).ToUniversalTime();
+                                    _logger.LogWarning(
+                                        "[TVHclient] AutorecDataHelper.buildAutorecInfos: retention value '{Days}' is outside the supported date range; using 365 days",
+                                        retentionInDays);
+
+                                    sti.EndDate = now.AddDays(365);
                                 }
                                 else
                                 {
-                                    sti.EndDate = DateTime.Now.AddDays(retentionInDays).ToUniversalTime();
+                                    sti.EndDate = now.AddDays(retentionInDays);
                                 }
                             }
                         }
