@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 
 namespace TVHeadEnd.Helper
@@ -7,6 +8,7 @@ namespace TVHeadEnd.Helper
     public class ByteList
     {
         private readonly List<byte> _data;
+        private bool _closed;
 
         public ByteList()
         {
@@ -19,6 +21,7 @@ namespace TVHeadEnd.Helper
             {
                 while (_data.Count < count)
                 {
+                    ThrowIfClosed();
                     Monitor.Wait(_data);
                 }
 
@@ -32,6 +35,7 @@ namespace TVHeadEnd.Helper
             {
                 while (_data.Count < count)
                 {
+                    ThrowIfClosed();
                     Monitor.Wait(_data);
                 }
 
@@ -45,6 +49,7 @@ namespace TVHeadEnd.Helper
         {
             lock (_data)
             {
+                ThrowIfClosed();
                 _data.AddRange(data);
                 if (_data.Count >= 1)
                 {
@@ -61,6 +66,23 @@ namespace TVHeadEnd.Helper
                 byte[] dataRange = new byte[count];
                 Array.Copy(data, 0, dataRange, 0, dataRange.Length);
                 AppendAll(dataRange);
+            }
+        }
+
+        public void Close()
+        {
+            lock (_data)
+            {
+                _closed = true;
+                Monitor.PulseAll(_data);
+            }
+        }
+
+        private void ThrowIfClosed()
+        {
+            if (_closed)
+            {
+                throw new IOException("The connection byte buffer is closed");
             }
         }
     }

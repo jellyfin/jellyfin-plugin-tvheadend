@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,7 +22,9 @@ namespace TVHeadEnd.HTSP.Responses
 
         private readonly List<ProgramInfo> _result;
 
-        private volatile bool _dataReady;
+        private readonly object _responseLock = new object();
+        private bool _dataReady;
+        private Exception? _error;
 
         public GetEventsResponseHandler(DateTime startDateTimeUtc, DateTime endDateTimeUtc, ILogger<LiveTvService> logger, CancellationToken cancellationToken)
         {
@@ -36,6 +40,12 @@ namespace TVHeadEnd.HTSP.Responses
         public void HandleResponse(HTSMessage response)
         {
             _logger.LogDebug("[TVHclient] GetEventsResponseHandler.handleResponse: received answer from TVH server: {Msg}", response.ToString());
+
+            if (response.ContainsField("error") || response.GetInt("noaccess", 0) == 1)
+            {
+                HandleError(new IOException("TVHeadend rejected the event request"));
+                return;
+            }
 
             if (response.ContainsField("events"))
             {
@@ -740,7 +750,11 @@ namespace TVHeadEnd.HTSP.Responses
                 }
             }
 
-            _dataReady = true;
+            lock (_responseLock)
+            {
+                _dataReady = true;
+                Monitor.PulseAll(_responseLock);
+            }
         }
 
         private string CreatePiInfo(ProgramInfo pi)
@@ -775,19 +789,47 @@ namespace TVHeadEnd.HTSP.Responses
             return sb.ToString();
         }
 
+        public void HandleError(Exception error)
+        {
+            lock (_responseLock)
+            {
+                _error ??= error;
+                Monitor.PulseAll(_responseLock);
+            }
+        }
+
         public Task<IEnumerable<ProgramInfo>> GetEvents(string channelId, CancellationToken cancellationToken)
         {
-            return Task.Run<IEnumerable<ProgramInfo>>(() =>
-            {
-                while (!_dataReady || cancellationToken.IsCancellationRequested)
+            return Task.Run<IEnumerable<ProgramInfo>>(
+                () =>
                 {
-                    Thread.Sleep(500);
-                }
+                    long started = Stopwatch.GetTimestamp();
+                    lock (_responseLock)
+                    {
+                        while (!_dataReady && _error == null)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            if (Stopwatch.GetElapsedTime(started) >= TimeSpan.FromMinutes(5))
+                            {
+                                throw new TimeoutException("Timed out waiting for channel events");
+                            }
 
-                // _logger.LogDebug("[TVHclient] GetEventsResponseHandler.GetEvents: channelId={Cid}  / dataReady={Dr}  / cancellationToken.IsCancellationRequested={Cancelreq}",
-                //    channelId, _dataReady, cancellationToken.IsCancellationRequested);
-                return _result;
-            });
+                            Monitor.Wait(_responseLock, TimeSpan.FromMilliseconds(100));
+                        }
+
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        // A reply that arrived completely is good data even if the connection
+                        // died right afterwards; only fail when there is none.
+                        if (!_dataReady)
+                        {
+                            throw new IOException("Could not retrieve channel events", _error);
+                        }
+
+                        return _result;
+                    }
+                },
+                cancellationToken);
         }
     }
 }

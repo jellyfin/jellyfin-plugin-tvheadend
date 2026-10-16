@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -48,6 +49,10 @@ public class AccessTicketHandler
 
     public async Task<Ticket> GetTicket(string itemId, CancellationToken cancellationToken)
     {
+        // A cached ticket is only useful while the server is reachable; fail here instead of
+        // handing Jellyfin a stream URL that fails later inside the HTTP probe.
+        await _htsConnectionHandler.EnsureAvailableAsync("Obtaining a playback ticket", cancellationToken).ConfigureAwait(false);
+
         var now = DateTime.UtcNow;
         Ticket? ticket = null;
 
@@ -97,7 +102,7 @@ public class AccessTicketHandler
         return RequestTicket(itemId, cancellation).ContinueWith(
             ticketTask =>
             {
-                var response = ticketTask.Result;
+                var response = ticketTask.GetAwaiter().GetResult();
                 var path = response.GetString("path");
                 var ticket = response.GetString("ticket");
 
@@ -141,19 +146,33 @@ public class AccessTicketHandler
              attempt <= lastAttempt && !cancellation.IsCancellationRequested;
              attempt++)
         {
-            var runner = new TaskWithTimeoutRunner<HTSMessage>(_requestTimeout * attempt);
-            var result = await runner.RunWithTimeout(Task.Run(
-                () =>
-                {
-                    var response = new LoopBackResponseHandler();
-                    _htsConnectionHandler.SendMessage(request, response);
-                    return response.GetResponse();
-                },
-                cancellation)).ConfigureAwait(false);
+            // Wait for a reconnect that is in flight (a server restart right before
+            // playback) instead of failing on the first attempt; a server known to be
+            // down fails fast with the reason.
+            await _htsConnectionHandler.EnsureAvailableAsync("Obtaining a playback ticket", cancellation).ConfigureAwait(false);
 
-            if (!result.HasTimeout)
+            var runner = new TaskWithTimeoutRunner<HTSMessage>(_requestTimeout * attempt);
+            try
             {
-                return result.Result;
+                var result = await runner.RunWithTimeout(Task.Run(
+                    () =>
+                    {
+                        var response = new LoopBackResponseHandler();
+                        _htsConnectionHandler.SendMessage(request, response);
+                        return response.GetResponse();
+                    },
+                    cancellation)).ConfigureAwait(false);
+
+                if (!result.HasTimeout)
+                {
+                    return result.Result;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException && attempt < lastAttempt && !cancellation.IsCancellationRequested)
+            {
+                // The connection dropped underneath the request; the next attempt waits
+                // for the reconnect.
+                _logger.LogWarning("[TVHclient] AccessTicketHandler.GetAccessTicket: ticket request attempt {Attempt} failed - {Message}", attempt, ex.Message);
             }
         }
 

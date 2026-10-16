@@ -19,6 +19,17 @@ namespace TVHeadEnd.DataHelper
             _data = new Dictionary<string, HTSMessage>();
         }
 
+        /// <summary>
+        /// Forgets every entry so the next session's dump is not merged into stale state.
+        /// </summary>
+        public void Clear()
+        {
+            lock (_data)
+            {
+                _data.Clear();
+            }
+        }
+
         public void AutorecEntryAdd(HTSMessage message)
         {
             string? id = message.GetString("id");
@@ -88,17 +99,14 @@ namespace TVHeadEnd.DataHelper
         {
             return Task.Run<IEnumerable<SeriesTimerInfo>>(() =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 lock (_data)
                 {
                     List<SeriesTimerInfo> result = new List<SeriesTimerInfo>();
 
                     foreach (KeyValuePair<string, HTSMessage> entry in _data)
                     {
-                        if (cancellationToken.IsCancellationRequested)
-                        {
-                            _logger.LogDebug("[TVHclient] AutorecDataHelper.buildAutorecInfos: call cancelled - returning partial list");
-                            return result;
-                        }
+                        cancellationToken.ThrowIfCancellationRequested();
 
                         HTSMessage m = entry.Value;
                         SeriesTimerInfo sti = new SeriesTimerInfo();
@@ -244,6 +252,7 @@ namespace TVHeadEnd.DataHelper
                         result.Add(sti);
                     }
 
+                    cancellationToken.ThrowIfCancellationRequested();
                     return result;
                 }
             });

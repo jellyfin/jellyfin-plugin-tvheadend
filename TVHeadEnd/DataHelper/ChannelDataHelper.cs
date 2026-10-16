@@ -26,6 +26,17 @@ namespace TVHeadEnd.DataHelper
             _piconData = new Dictionary<string, string>();
         }
 
+        /// <summary>
+        /// Forgets every entry so the next session's dump is not merged into stale state.
+        /// </summary>
+        public void Clear()
+        {
+            lock (_data)
+            {
+                _data.Clear();
+            }
+        }
+
         public void SetChannelType4Other(string? channelType4Other)
         {
             _channelType4Other = channelType4Other ?? "Ignore";
@@ -95,16 +106,13 @@ namespace TVHeadEnd.DataHelper
         {
             return Task.Run<IEnumerable<ChannelInfo>>(() =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 lock (_data)
                 {
                     List<ChannelInfo> result = new List<ChannelInfo>();
                     foreach (KeyValuePair<int, HTSMessage> entry in _data)
                     {
-                        if (cancellationToken.IsCancellationRequested)
-                        {
-                            _logger.LogDebug("[TVHclient] ChannelDataHelper.buildChannelInfos: call cancelled - returning partial list");
-                            return result;
-                        }
+                        cancellationToken.ThrowIfCancellationRequested();
 
                         HTSMessage m = entry.Value;
 
@@ -221,6 +229,7 @@ namespace TVHeadEnd.DataHelper
                         }
                     }
 
+                    cancellationToken.ThrowIfCancellationRequested();
                     return result;
                 }
             });

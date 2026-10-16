@@ -146,22 +146,14 @@ namespace TVHeadEnd
                 ?? throw new InvalidOperationException("The TVHeadend LiveTvService has not been registered yet");
         }
 
-        private Task<int> WaitForInitialLoadTask(CancellationToken cancellationToken)
-        {
-            return Task.Run(() => _htsConnectionHandler.WaitForInitialLoad(cancellationToken), cancellationToken);
-        }
-
         public async Task<IEnumerable<MyRecordingInfo>> GetAllRecordingsAsync(CancellationToken cancellationToken)
         {
             // retrieve all 'Pending', 'Inprogress' and 'Completed' recordings
             // we don't deliver the 'Pending' recordings
 
-            int timeOut = await WaitForInitialLoadTask(cancellationToken).ConfigureAwait(false);
-            if (timeOut == -1 || cancellationToken.IsCancellationRequested)
-            {
-                _logger.LogDebug("[TVHclient] GetAllRecordingsAsync - Not initialized ");
-                return [];
-            }
+            // Jellyfin's channel refresh deletes every recording item missing from the result,
+            // so an outage has to surface as an error rather than as an empty list.
+            await _htsConnectionHandler.EnsureAvailableAsync(nameof(GetAllRecordingsAsync), cancellationToken).ConfigureAwait(false);
 
             TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>> twtr = new TaskWithTimeoutRunner<IEnumerable<MyRecordingInfo>>(_timeout);
             TaskWithTimeoutResult<IEnumerable<MyRecordingInfo>> twtRes = await
@@ -169,10 +161,10 @@ namespace TVHeadEnd
 
             if (twtRes.HasTimeout)
             {
-                _logger.LogDebug("[TVHclient] GetAllRecordingsAsync - Timeout");
-                return [];
+                throw new TimeoutException("[TVHclient] GetAllRecordingsAsync: recording list construction timed out");
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             return twtRes.Result;
         }
 
@@ -231,12 +223,20 @@ namespace TVHeadEnd
                 return GetChannelItems(query, i => !i.IsSports && !i.IsNews && !i.IsMovie && !i.IsKids && !i.IsSeries, cancellationToken);
             }
 
-            var result = new ChannelItemResult()
+            return GetUnknownFolderItems(query, cancellationToken);
+        }
+
+        private async Task<ChannelItemResult> GetUnknownFolderItems(InternalChannelItemQuery query, CancellationToken cancellationToken)
+        {
+            // An empty result is authoritative for Jellyfin (it deletes the folder's items), so
+            // even a folder this version does not know must not answer during an outage.
+            await _htsConnectionHandler.EnsureAvailableAsync(nameof(GetChannelItems), cancellationToken).ConfigureAwait(false);
+            _logger.LogWarning("[TVHclient] RecordingsChannel: unknown folder '{FolderId}' requested", query.FolderId);
+
+            return new ChannelItemResult
             {
                 Items = new List<ChannelItemInfo>()
             };
-
-            return Task.FromResult(result);
         }
 
         public async Task<ChannelItemResult> GetChannelItems(InternalChannelItemQuery query, Func<MyRecordingInfo, bool> filter, CancellationToken cancellationToken)

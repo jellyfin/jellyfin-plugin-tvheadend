@@ -22,7 +22,10 @@ namespace TVHeadEnd.TimeoutHelper
                         () =>
                         {
                             TaskWithTimeoutResult<T> myTaskResult = new TaskWithTimeoutResult<T>();
-                            myTaskResult.Result = task.Result;
+                            // GetResult() rethrows the task's own exception instead of wrapping
+                            // it in AggregateException, so cancellation and connection errors
+                            // keep their type all the way up to Jellyfin.
+                            myTaskResult.Result = task.GetAwaiter().GetResult();
                             myTaskResult.HasTimeout = false;
                             return myTaskResult;
                         },
@@ -30,9 +33,19 @@ namespace TVHeadEnd.TimeoutHelper
 
                     longRunningTask.Start();
 
-                    if (longRunningTask.Wait(_timeout))
+                    bool completed;
+                    try
                     {
-                        return longRunningTask.Result;
+                        completed = longRunningTask.Wait(_timeout);
+                    }
+                    catch (AggregateException)
+                    {
+                        completed = true;
+                    }
+
+                    if (completed)
+                    {
+                        return longRunningTask.GetAwaiter().GetResult();
                     }
 
                     // If we reach here we had an timeout
@@ -43,8 +56,7 @@ namespace TVHeadEnd.TimeoutHelper
                 });
 
                 outherTask.Start();
-                outherTask.Wait();
-                return outherTask.Result;
+                return outherTask.GetAwaiter().GetResult();
             });
         }
     }
