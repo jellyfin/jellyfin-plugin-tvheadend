@@ -425,14 +425,14 @@ namespace TVHeadEnd
                 livetvasset.Id = channelId;
 
                 // Use HTTP basic auth in HTTP header instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
-                livetvasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Path;
+                livetvasset.Path = WithStreamingProfile(_htsConnectionHandler.GetHttpBaseUrl() + ticket.Path);
                 livetvasset.Protocol = MediaProtocol.Http;
                 livetvasset.RequiredHttpHeaders = _htsConnectionHandler.GetHeaders();
                 livetvasset.AnalyzeDurationMs = 2000;
                 livetvasset.SupportsDirectStream = false;
                 livetvasset.RequiresClosing = true;
                 livetvasset.SupportsProbing = false;
-                livetvasset.Container = "mpegts";
+                livetvasset.Container = ConfiguredContainer();
                 livetvasset.RequiresOpening = true;
                 livetvasset.IsInfiniteStream = true;
 
@@ -464,12 +464,12 @@ namespace TVHeadEnd
                 return new MediaSourceInfo
                 {
                     Id = channelId,
-                    Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Url,
+                    Path = WithStreamingProfile(_htsConnectionHandler.GetHttpBaseUrl() + ticket.Url),
                     Protocol = MediaProtocol.Http,
                     AnalyzeDurationMs = 2000,
                     SupportsDirectStream = false,
                     SupportsProbing = false,
-                    Container = "mpegts",
+                    Container = ConfiguredContainer(),
                     MediaStreams = new List<MediaStream>
                     {
                         new MediaStream
@@ -490,6 +490,30 @@ namespace TVHeadEnd
                     }
                 };
             }
+        }
+
+        private static string WithStreamingProfile(string url)
+        {
+            var profile = Plugin.Instance.Configuration.StreamingProfile;
+
+            if (string.IsNullOrWhiteSpace(profile))
+            {
+                return url;
+            }
+
+            var separator = url.Contains('?', StringComparison.Ordinal) ? '&' : '?';
+
+            return url + separator + "profile=" + Uri.EscapeDataString(profile.Trim());
+        }
+
+        private static string ConfiguredContainer()
+        {
+            // Which container a streaming profile produces cannot be asked of TVHeadend:
+            // api/profile/list returns names only, and the class is admin only. It therefore
+            // has to be stated next to the profile it belongs to.
+            var container = Plugin.Instance.Configuration.Container;
+
+            return string.IsNullOrWhiteSpace(container) ? "mpegts" : container.Trim();
         }
 
         private async Task ProbeStream(MediaSourceInfo mediaSourceInfo, string probeUrl, string source, CancellationToken cancellationToken)
@@ -580,7 +604,10 @@ namespace TVHeadEnd
             }
             else
             {
-                _logger.LogError("Cannot probe {Source} stream", source);
+                _logger.LogError(
+                    "Cannot probe {Source} stream. It is announced as {Container}; if the streaming profile in use produces something else, ffmpeg is given the wrong demuxer and the probe cannot succeed",
+                    source,
+                    mediaSourceInfo.Container);
             }
         }
 
