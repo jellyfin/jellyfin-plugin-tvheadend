@@ -16,6 +16,7 @@ namespace TVHeadEnd.DataHelper
         private readonly Dictionary<int, HTSMessage> _data;
         private readonly Dictionary<string, string> _piconData;
         private string _channelType4Other = "Ignore";
+        private bool _includeUnnumberedChannels = true;
 
         public ChannelDataHelper(ILogger<ChannelDataHelper> logger)
         {
@@ -28,6 +29,11 @@ namespace TVHeadEnd.DataHelper
         public void SetChannelType4Other(string? channelType4Other)
         {
             _channelType4Other = channelType4Other ?? "Ignore";
+        }
+
+        public void SetIncludeUnnumberedChannels(bool includeUnnumberedChannels)
+        {
+            _includeUnnumberedChannels = includeUnnumberedChannels;
         }
 
         public void Add(HTSMessage message)
@@ -58,9 +64,17 @@ namespace TVHeadEnd.DataHelper
                     }
                     else
                     {
-                        if (message.ContainsField("channelNumber") && message.GetInt("channelNumber") > 0) // use only channels with number > 0
+                        bool hasNumber = message.ContainsField("channelNumber") && message.GetInt("channelNumber") > 0;
+                        if (hasNumber || _includeUnnumberedChannels)
                         {
                             _data.Add(channelID, message);
+                        }
+                        else
+                        {
+                            _logger.LogDebug(
+                                "[TVHclient] ChannelDataHelper: ignoring channel '{Name}' (channelId {Id}) because it has no channel number",
+                                message.ContainsField("channelName") ? message.GetString("channelName") : string.Empty,
+                                channelID);
                         }
                     }
                 }
@@ -127,7 +141,9 @@ namespace TVHeadEnd.DataHelper
                                 ci.Name = m.GetString("channelName");
                             }
 
-                            if (m.ContainsField("channelNumber"))
+                            // TVHeadend reports 0 for channels without a number; leave Number
+                            // empty in that case so Jellyfin sorts them by name.
+                            if (m.ContainsField("channelNumber") && m.GetInt("channelNumber") > 0)
                             {
                                 int channelNumber = m.GetInt("channelNumber");
                                 ci.Number = string.Empty + channelNumber;

@@ -170,6 +170,7 @@ namespace TVHeadEnd
             // The constructor runs before any configuration is available, so the channel type
             // has to be handed to the data helper here, once it has actually been read.
             _channelDataHelper.SetChannelType4Other(_channelType);
+            _channelDataHelper.SetIncludeUnnumberedChannels(config.IncludeUnnumberedChannels);
 
             _configured = true;
         }

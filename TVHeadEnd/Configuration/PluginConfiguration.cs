@@ -27,6 +27,7 @@ namespace TVHeadEnd.Configuration
             HideRecordingsChannel = false;
             EnableSubsMaudios = false;
             ForceDeinterlace = false;
+            IncludeUnnumberedChannels = true;
         }
 
         public string TVH_ServerName { get; set; }
@@ -54,5 +55,7 @@ namespace TVHeadEnd.Configuration
         public bool EnableSubsMaudios { get; set; }
 
         public bool ForceDeinterlace { get; set; }
+
+        public bool IncludeUnnumberedChannels { get; set; }
     }
 }
