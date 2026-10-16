@@ -11,6 +11,15 @@ namespace TVHeadEnd.DataHelper
 {
     public class DvrDataHelper
     {
+        // The fields BuildDvrInfos reads. TVHeadend sends a dvrEntryUpdate whenever the size
+        // of a running recording changes, and stamping those would invalidate the channel
+        // listing for as long as anything is recording.
+        private static readonly HashSet<string> ListingFields = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "channel", "start", "stop", "title", "subtitle", "summary", "description",
+            "state", "error", "path", "url", "eventId", "autorecId",
+        };
+
         private readonly ILogger<DvrDataHelper> _logger;
         private readonly Dictionary<string, HTSMessage> _data;
 
@@ -21,6 +30,8 @@ namespace TVHeadEnd.DataHelper
             _logger = logger;
             _data = new Dictionary<string, HTSMessage>();
         }
+
+        public DateTime LastChangeUtc { get; private set; } = DateTime.MinValue;
 
         public void DvrEntryAdd(HTSMessage message)
         {
@@ -41,6 +52,8 @@ namespace TVHeadEnd.DataHelper
 
                 _data.Add(id, message);
             }
+
+            LastChangeUtc = DateTime.UtcNow;
         }
 
         public void DvrEntryUpdate(HTSMessage message)
@@ -52,6 +65,8 @@ namespace TVHeadEnd.DataHelper
                 return;
             }
 
+            bool listingChanged;
+
             lock (_data)
             {
                 if (!_data.TryGetValue(id, out HTSMessage? oldMessage) || oldMessage == null)
@@ -60,8 +75,24 @@ namespace TVHeadEnd.DataHelper
                     return;
                 }
 
+                var before = new Dictionary<string, object>(StringComparer.Ordinal);
+                foreach (KeyValuePair<string, object> entry in oldMessage)
+                {
+                    if (ListingFields.Contains(entry.Key))
+                    {
+                        before[entry.Key] = entry.Value;
+                    }
+                }
+
+                listingChanged = false;
                 foreach (KeyValuePair<string, object> entry in message)
                 {
+                    if (ListingFields.Contains(entry.Key)
+                        && (!before.TryGetValue(entry.Key, out object? was) || !Equals(was, entry.Value)))
+                    {
+                        listingChanged = true;
+                    }
+
                     if (oldMessage.ContainsField(entry.Key))
                     {
                         oldMessage.RemoveField(entry.Key);
@@ -69,6 +100,11 @@ namespace TVHeadEnd.DataHelper
 
                     oldMessage.PutField(entry.Key, entry.Value);
                 }
+            }
+
+            if (listingChanged)
+            {
+                LastChangeUtc = DateTime.UtcNow;
             }
         }
 
@@ -85,6 +121,8 @@ namespace TVHeadEnd.DataHelper
             {
                 _data.Remove(id);
             }
+
+            LastChangeUtc = DateTime.UtcNow;
         }
 
         public Task<IEnumerable<MyRecordingInfo>> BuildDvrInfos(CancellationToken cancellationToken)

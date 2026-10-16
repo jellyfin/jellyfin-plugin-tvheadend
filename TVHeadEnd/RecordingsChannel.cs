@@ -18,7 +18,7 @@ using TVHeadEnd.TimeoutHelper;
 
 namespace TVHeadEnd
 {
-    public class RecordingsChannel : IChannel, ISupportsDelete, ISupportsLatestMedia, IHasFolderAttributes
+    public class RecordingsChannel : IChannel, IHasCacheKey, ISupportsDelete, ISupportsLatestMedia, ISupportsMediaProbe, IHasFolderAttributes
     {
         private readonly TimeSpan _timeout = TimeSpan.FromMinutes(5);
         private readonly ILogger<LiveTvService> _logger;
@@ -71,7 +71,7 @@ namespace TVHeadEnd
             get { return ChannelParentalRating.GeneralAudience; }
         }
 
-        public string GetCacheKey(string userId)
+        public string? GetCacheKey(string? userId)
         {
             var now = DateTime.UtcNow;
 
@@ -85,9 +85,19 @@ namespace TVHeadEnd
 
             values.Add(Math.Floor(minute).ToString(CultureInfo.InvariantCulture));
 
-            values.Add(GetService().LastRecordingChange.Ticks.ToString(CultureInfo.InvariantCulture));
+            values.Add(LastRecordingChangeUtc().Ticks.ToString(CultureInfo.InvariantCulture));
 
             return string.Join("-", values.ToArray());
+        }
+
+        private DateTime LastRecordingChangeUtc()
+        {
+            // The service only stamps what Jellyfin asked for; HTSP also sees changes made in
+            // TVHeadend, but lands a moment later. Take whichever is more recent.
+            var fromHtsp = _htsConnectionHandler.GetLastRecordingChangeUtc();
+            var fromService = GetService().LastRecordingChange;
+
+            return fromHtsp > fromService ? fromHtsp : fromService;
         }
 
         public InternalChannelFeatures GetChannelFeatures()
@@ -277,27 +287,7 @@ namespace TVHeadEnd
                     {
                         Path = path,
                         Protocol = path.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? MediaProtocol.Http : MediaProtocol.File,
-                        Id = item.Id,
-                        Container = "mpegts",
-                        AnalyzeDurationMs = 2000,
-                        MediaStreams = new List<MediaStream>
-                        {
-                            new MediaStream
-                            {
-                                Type = MediaStreamType.Video,
-                                // Set the index to -1 because we don't know the exact index of the video stream within the container
-                                Index = -1,
-                                // Set to true if unknown to enable deinterlacing
-                                IsInterlaced = true,
-                                RealFrameRate = 50.0F
-                            },
-                            new MediaStream
-                            {
-                                Type = MediaStreamType.Audio,
-                                // Set the index to -1 because we don't know the exact index of the audio stream within the container
-                                Index = -1
-                            }
-                        }
+                        Id = item.Id
                     }
                 },
                 // ParentIndexNumber = item.ParentIndexNumber,

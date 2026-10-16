@@ -414,6 +414,11 @@ namespace TVHeadEnd
             return _forceDeinterlace;
         }
 
+        public DateTime GetLastRecordingChangeUtc()
+        {
+            return _dvrDataHelper.LastChangeUtc;
+        }
+
         public Task<IEnumerable<MyRecordingInfo>> BuildDvrInfos(CancellationToken cancellationToken)
         {
             return _dvrDataHelper.BuildDvrInfos(cancellationToken);
