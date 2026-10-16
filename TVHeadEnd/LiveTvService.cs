@@ -492,6 +492,18 @@ namespace TVHeadEnd
             }
         }
 
+        private bool KeepStream(MediaStream stream)
+        {
+            if (stream.Type != MediaStreamType.Subtitle)
+            {
+                return true;
+            }
+
+            // Jellyfin cannot extract subtitles from a live source, so a listed track
+            // ends playback when it is picked.
+            return _htsConnectionHandler.GetOfferSubtitles();
+        }
+
         private async Task ProbeStream(MediaSourceInfo mediaSourceInfo, string probeUrl, string source, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Probe stream for {Source}", source);
@@ -523,9 +535,9 @@ namespace TVHeadEnd
                 mediaSourceInfo.Container = info.Container;
                 _logger.LogDebug("        Container:                  {Container}", info.Container);
 
-                mediaSourceInfo.MediaStreams = info.MediaStreams;
+                mediaSourceInfo.MediaStreams = [.. info.MediaStreams.Where(KeepStream)];
                 _logger.LogDebug("        MediaStreams:               ");
-                LogMediaStreamList(info.MediaStreams, "                       ");
+                LogMediaStreamList(mediaSourceInfo.MediaStreams, "                       ");
 
                 mediaSourceInfo.RunTimeTicks = info.RunTimeTicks;
                 _logger.LogDebug("        RunTimeTicks:               {RunTimeTicks}", info.RunTimeTicks);

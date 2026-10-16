@@ -56,6 +56,7 @@ namespace TVHeadEnd
         private string _password = string.Empty;
         private bool _enableSubsMaudios;
         private bool _forceDeinterlace;
+        private bool _offerSubtitles;
 
         private LiveTvService? _liveTvService;
 
@@ -142,6 +143,7 @@ namespace TVHeadEnd
             _channelType = config.ChannelType.Trim();
             _enableSubsMaudios = config.EnableSubsMaudios;
             _forceDeinterlace = config.ForceDeinterlace;
+            _offerSubtitles = config.OfferSubtitles;
 
             if (_priority < DvrPriorityImportant || _priority > DvrPriorityNotSet)
             {
@@ -412,6 +414,12 @@ namespace TVHeadEnd
         {
             Init();
             return _forceDeinterlace;
+        }
+
+        public bool GetOfferSubtitles()
+        {
+            Init();
+            return _offerSubtitles;
         }
 
         public Task<IEnumerable<MyRecordingInfo>> BuildDvrInfos(CancellationToken cancellationToken)
