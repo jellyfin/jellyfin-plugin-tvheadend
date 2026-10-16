@@ -420,9 +420,23 @@ namespace TVHeadEnd
 
             // Like program images, recording artwork arrives as an imagecache reference relative
             // to the web root from HTSP v34 on. Resolve it into an absolute URL Jellyfin can fetch.
+            // Resolving needs the connection, so it can fail; a recording whose reference cannot
+            // be resolved goes without artwork rather than taking the whole listing down.
             foreach (var recording in recordings)
             {
-                recording.ImageUrl = ResolveImageUrl(recording.ImageUrl);
+                try
+                {
+                    recording.ImageUrl = ResolveImageUrl(recording.ImageUrl);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "[TVHclient] HTSConnectionHandler.BuildDvrInfos: could not resolve the artwork of recording {RecordingId}",
+                        recording.Id);
+                    recording.ImageUrl = null;
+                }
+
                 recording.HasImage = !string.IsNullOrEmpty(recording.ImageUrl);
             }
 
