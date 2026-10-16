@@ -275,10 +275,18 @@ namespace TVHeadEnd
                     var candidatePath = Path.GetFullPath(
                         Path.Combine(recordingRoot, relativePath));
 
-                    if (candidatePath.StartsWith(
-                            recordingRoot + Path.DirectorySeparatorChar,
+                    var relativeCandidatePath = Path.GetRelativePath(
+                        recordingRoot,
+                        candidatePath);
+
+                    var isWithinRecordingRoot =
+                        !relativeCandidatePath.Equals("..", StringComparison.Ordinal)
+                        && !relativeCandidatePath.StartsWith(
+                            ".." + Path.DirectorySeparatorChar,
                             StringComparison.Ordinal)
-                        && File.Exists(candidatePath))
+                        && !Path.IsPathRooted(relativeCandidatePath);
+
+                    if (isWithinRecordingRoot && File.Exists(candidatePath))
                     {
                         path = candidatePath;
                     }
@@ -335,26 +343,7 @@ namespace TVHeadEnd
                         Id = string.Empty,
                         Container = "mpegts",
                         AnalyzeDurationMs = 2000,
-                        MediaStreams = protocol == MediaProtocol.File
-                                        ? new List<MediaStream>()
-                                        : new List<MediaStream>
-                        {
-                            new MediaStream
-                            {
-                                Type = MediaStreamType.Video,
-                                // Set the index to -1 because we don't know the exact index of the video stream within the container
-                                Index = -1,
-                                // Set to true if unknown to enable deinterlacing
-                                IsInterlaced = true,
-                                RealFrameRate = 50.0F
-                            },
-                            new MediaStream
-                            {
-                                Type = MediaStreamType.Audio,
-                                // Set the index to -1 because we don't know the exact index of the audio stream within the container
-                                Index = -1
-                            }
-                        }
+                        MediaStreams = new List<MediaStream>()
                     }
                 },
                 // ParentIndexNumber = item.ParentIndexNumber,
