@@ -332,11 +332,22 @@ namespace TVHeadEnd
             }
         }
 
+        /// <summary>
+        /// Picks the artwork of the first recording in a group that has any, so a folder is not
+        /// left blank just because its first entry carries no image.
+        /// </summary>
+        /// <param name="recordings">The recordings shown inside the folder.</param>
+        /// <returns>An image URL, or <c>null</c> when none of the recordings has artwork.</returns>
+        private static string? FirstImageUrl(IEnumerable<MyRecordingInfo> recordings)
+        {
+            return recordings.Select(r => r.ImageUrl).FirstOrDefault(url => !string.IsNullOrEmpty(url));
+        }
+
         private async Task<ChannelItemResult> GetRecordingGroups(InternalChannelItemQuery query, CancellationToken cancellationToken)
         {
             _logger.LogDebug("[TVHclient] GetRecordingGroups - Updateing TVHeadend Recording Items");
 
-            var allRecordings = await GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false);
+            var allRecordings = (await GetAllRecordingsAsync(cancellationToken).ConfigureAwait(false)).ToList();
             var result = new ChannelItemResult();
             var items = new List<ChannelItemInfo>();
 
@@ -350,12 +361,12 @@ namespace TVHeadEnd
                 FolderType = ChannelFolderType.Container,
                 Id = "series_" + (i.Key ?? string.Empty).GetMD5().ToString("N"),
                 Type = ChannelItemType.Folder,
-                ImageUrl = i.First().ImageUrl
+                ImageUrl = FirstImageUrl(i)
             }));
 
-            var kids = allRecordings.FirstOrDefault(i => i.IsKids);
+            var kids = allRecordings.Where(i => i.IsKids).ToList();
 
-            if (kids != null)
+            if (kids.Count > 0)
             {
                 items.Add(new ChannelItemInfo
                 {
@@ -363,12 +374,12 @@ namespace TVHeadEnd
                     FolderType = ChannelFolderType.Container,
                     Id = "kids",
                     Type = ChannelItemType.Folder,
-                    ImageUrl = kids.ImageUrl
+                    ImageUrl = FirstImageUrl(kids)
                 });
             }
 
-            var movies = allRecordings.FirstOrDefault(i => i.IsMovie);
-            if (movies != null)
+            var movies = allRecordings.Where(i => i.IsMovie).ToList();
+            if (movies.Count > 0)
             {
                 items.Add(new ChannelItemInfo
                 {
@@ -376,12 +387,12 @@ namespace TVHeadEnd
                     FolderType = ChannelFolderType.Container,
                     Id = "movies",
                     Type = ChannelItemType.Folder,
-                    ImageUrl = movies.ImageUrl
+                    ImageUrl = FirstImageUrl(movies)
                 });
             }
 
-            var news = allRecordings.FirstOrDefault(i => i.IsNews);
-            if (news != null)
+            var news = allRecordings.Where(i => i.IsNews).ToList();
+            if (news.Count > 0)
             {
                 items.Add(new ChannelItemInfo
                 {
@@ -389,12 +400,12 @@ namespace TVHeadEnd
                     FolderType = ChannelFolderType.Container,
                     Id = "news",
                     Type = ChannelItemType.Folder,
-                    ImageUrl = news.ImageUrl
+                    ImageUrl = FirstImageUrl(news)
                 });
             }
 
-            var sports = allRecordings.FirstOrDefault(i => i.IsSports);
-            if (sports != null)
+            var sports = allRecordings.Where(i => i.IsSports).ToList();
+            if (sports.Count > 0)
             {
                 items.Add(new ChannelItemInfo
                 {
@@ -402,12 +413,12 @@ namespace TVHeadEnd
                     FolderType = ChannelFolderType.Container,
                     Id = "sports",
                     Type = ChannelItemType.Folder,
-                    ImageUrl = sports.ImageUrl
+                    ImageUrl = FirstImageUrl(sports)
                 });
             }
 
-            var other = allRecordings.FirstOrDefault(i => !i.IsSports && !i.IsNews && !i.IsMovie && !i.IsKids && !i.IsSeries);
-            if (other != null)
+            var other = allRecordings.Where(i => !i.IsSports && !i.IsNews && !i.IsMovie && !i.IsKids && !i.IsSeries).ToList();
+            if (other.Count > 0)
             {
                 items.Add(new ChannelItemInfo
                 {
@@ -415,7 +426,7 @@ namespace TVHeadEnd
                     FolderType = ChannelFolderType.Container,
                     Id = "others",
                     Type = ChannelItemType.Folder,
-                    ImageUrl = other.ImageUrl
+                    ImageUrl = FirstImageUrl(other)
                 });
             }
 
