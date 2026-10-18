@@ -42,6 +42,17 @@ namespace TVHeadEnd
         /// <inheritdoc />
         public override Guid Id => _pluginId;
 
+        public override void UpdateConfiguration(BasePluginConfiguration configuration)
+        {
+            if (configuration is PluginConfiguration updatedConfiguration
+                && !string.Equals(Configuration.RecordingRoot, updatedConfiguration.RecordingRoot, StringComparison.Ordinal))
+            {
+                updatedConfiguration.RecordingRootLastChanged = DateTimeOffset.UtcNow;
+            }
+
+            base.UpdateConfiguration(configuration);
+        }
+
         public IEnumerable<PluginPageInfo> GetPages()
         {
             return new[]

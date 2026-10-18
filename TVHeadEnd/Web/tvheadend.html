@@ -26,6 +26,10 @@
                     <input is="emby-input" type="text" id="txtProfile" label="Profile for Recordings" />
                 </div>
                 <div class="inputContainer">
+                    <input is="emby-input" type="text" id="txtRecordingRoot" label="Local recording root" />
+                    <div class="fieldDescription">Optional local prefix for the complete recording paths reported by TVHeadend. For example, root /mnt/tvh and TVHeadend path /recordings/show.ts resolve to /mnt/tvh/recordings/show.ts. Leave empty to stream recordings through TVHeadend HTTP.</div>
+                </div>
+                <div class="inputContainer">
                     <input is="emby-input" type="text" id="txtPrePadding" label="Pre-recording Padding in seconds" />
                     <div class="fieldDescription">TVHeadend stores padding in whole minutes, so values are rounded down and anything below 60 seconds has no effect.</div>
                 </div>

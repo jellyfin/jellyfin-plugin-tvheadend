@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,7 +19,7 @@ using TVHeadEnd.TimeoutHelper;
 
 namespace TVHeadEnd
 {
-    public class RecordingsChannel : IChannel, ISupportsDelete, ISupportsLatestMedia, IHasFolderAttributes
+    public class RecordingsChannel : IChannel, IHasCacheKey, ISupportsDelete, ISupportsLatestMedia, IHasFolderAttributes, ISupportsMediaProbe
     {
         private readonly TimeSpan _timeout = TimeSpan.FromMinutes(5);
         private readonly ILogger<LiveTvService> _logger;
@@ -57,7 +58,7 @@ namespace TVHeadEnd
         {
             get
             {
-                return "1";
+                return "2";
             }
         }
 
@@ -71,7 +72,7 @@ namespace TVHeadEnd
             get { return ChannelParentalRating.GeneralAudience; }
         }
 
-        public string GetCacheKey(string userId)
+        public string GetCacheKey(string? userId)
         {
             var now = DateTime.UtcNow;
 
@@ -86,6 +87,10 @@ namespace TVHeadEnd
             values.Add(Math.Floor(minute).ToString(CultureInfo.InvariantCulture));
 
             values.Add(GetService().LastRecordingChange.Ticks.ToString(CultureInfo.InvariantCulture));
+
+            var configuration = Plugin.Instance.Configuration;
+            values.Add(configuration.RecordingRoot.GetMD5().ToString("N"));
+            values.Add(configuration.RecordingRootLastChanged.UtcDateTime.Ticks.ToString(CultureInfo.InvariantCulture));
 
             return string.Join("-", values.ToArray());
         }
@@ -257,6 +262,64 @@ namespace TVHeadEnd
         {
             var path = BuildRecordingPath(item.Id ?? string.Empty);
 
+            var recordingRoot = Plugin.Instance.Configuration.RecordingRoot;
+
+            if (!string.IsNullOrEmpty(recordingRoot) && !string.IsNullOrWhiteSpace(item.Path))
+            {
+                try
+                {
+                    var relativePath = item.Path.TrimStart(
+                        Path.DirectorySeparatorChar,
+                        Path.AltDirectorySeparatorChar);
+
+                    var candidatePath = Path.GetFullPath(
+                        Path.Combine(recordingRoot, relativePath));
+
+                    var relativeCandidatePath = Path.GetRelativePath(
+                        recordingRoot,
+                        candidatePath);
+
+                    var isWithinRecordingRoot =
+                        !relativeCandidatePath.Equals("..", StringComparison.Ordinal)
+                        && !relativeCandidatePath.StartsWith(
+                            ".." + Path.DirectorySeparatorChar,
+                            StringComparison.Ordinal)
+                        && !Path.IsPathRooted(relativeCandidatePath);
+
+                    if (isWithinRecordingRoot && File.Exists(candidatePath))
+                    {
+                        path = candidatePath;
+                    }
+                }
+                catch (Exception ex) when (
+                    ex is ArgumentException
+                    || ex is IOException
+                    || ex is NotSupportedException)
+                {
+                    _logger.LogWarning(
+                        ex,
+                        "[TVHclient] Could not resolve TVHeadend recording path {RecordingPath} beneath local root {RecordingRoot}; using TVHeadend HTTP playback",
+                        item.Path,
+                        recordingRoot);
+                }
+            }
+
+            var protocol = path.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                           ? MediaProtocol.Http
+                           : MediaProtocol.File;
+
+            var dateModified = item.DateLastUpdated > item.EndDate
+                               ? item.DateLastUpdated
+                               : item.EndDate;
+
+            var recordingRootLastChanged =
+                Plugin.Instance.Configuration.RecordingRootLastChanged.UtcDateTime;
+
+            if (recordingRootLastChanged > dateModified)
+            {
+                dateModified = recordingRootLastChanged;
+            }
+
             _logger.LogDebug("[TVHclient] ConvertToChannelItem - Creating ChannelItemInfo");
 
             var channelItem = new ChannelItemInfo
@@ -276,28 +339,11 @@ namespace TVHeadEnd
                     new MediaSourceInfo
                     {
                         Path = path,
-                        Protocol = path.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? MediaProtocol.Http : MediaProtocol.File,
-                        Id = item.Id,
+                        Protocol = protocol,
+                        Id = string.Empty,
                         Container = "mpegts",
                         AnalyzeDurationMs = 2000,
-                        MediaStreams = new List<MediaStream>
-                        {
-                            new MediaStream
-                            {
-                                Type = MediaStreamType.Video,
-                                // Set the index to -1 because we don't know the exact index of the video stream within the container
-                                Index = -1,
-                                // Set to true if unknown to enable deinterlacing
-                                IsInterlaced = true,
-                                RealFrameRate = 50.0F
-                            },
-                            new MediaStream
-                            {
-                                Type = MediaStreamType.Audio,
-                                // Set the index to -1 because we don't know the exact index of the audio stream within the container
-                                Index = -1
-                            }
-                        }
+                        MediaStreams = new List<MediaStream>()
                     }
                 },
                 // ParentIndexNumber = item.ParentIndexNumber,
@@ -308,7 +354,7 @@ namespace TVHeadEnd
                 // ProductionYear = item.ProductionYear,
                 // Studios = item.Studios,
                 Type = ChannelItemType.Media,
-                DateModified = item.DateLastUpdated,
+                DateModified = dateModified,
                 Overview = item.Overview,
                 // People = item.People
                 Etag = item.Status.ToString()
