@@ -424,10 +424,10 @@ namespace TVHeadEnd
 
                 livetvasset.Id = channelId;
 
-                // Use HTTP basic auth in HTTP header instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
-                livetvasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Path;
+                // A fresh ticket is requested every time this method runs, which includes the
+                // calls Jellyfin makes when the viewer switches audio or subtitle track.
+                livetvasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Url;
                 livetvasset.Protocol = MediaProtocol.Http;
-                livetvasset.RequiredHttpHeaders = _htsConnectionHandler.GetHeaders();
                 livetvasset.AnalyzeDurationMs = 2000;
                 livetvasset.SupportsDirectStream = false;
                 livetvasset.RequiresClosing = true;

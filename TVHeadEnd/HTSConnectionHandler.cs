@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Controller.LiveTv;
@@ -37,8 +36,6 @@ namespace TVHeadEnd
         private readonly ChannelDataHelper _channelDataHelper;
         private readonly DvrDataHelper _dvrDataHelper;
         private readonly AutorecDataHelper _autorecDataHelper;
-
-        private readonly Dictionary<string, string> _headers = new Dictionary<string, string>();
 
         private volatile bool _initialLoadFinished;
         private volatile bool _connected;
@@ -164,10 +161,6 @@ namespace TVHeadEnd
 
             _httpBaseUrl = BuildHttpBaseUrl();
 
-            string authInfo = _userName + ":" + _password;
-            authInfo = Convert.ToBase64String(Encoding.Default.GetBytes(authInfo));
-            _headers["Authorization"] = "Basic " + authInfo;
-
             // The constructor runs before any configuration is available, so the channel type
             // has to be handed to the data helper here, once it has actually been read.
             _channelDataHelper.SetChannelType4Other(_channelType);
@@ -230,12 +223,10 @@ namespace TVHeadEnd
         /// <returns>The HTTP base URL.</returns>
         private string BuildHttpBaseUrl()
         {
-            if (_enableSubsMaudios)
-            {
-                // Use HTTP basic auth instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
-                return "http://" + _userName + ":" + _password + "@" + _tvhServerName + ":" + _httpPort + _webRoot;
-            }
-
+            // Credentials must never be part of the URL. Jellyfin logs the media source path
+            // and the full ffmpeg command line, so a password placed here is written to the
+            // server log in plain text. TVHeadend's tickets are used for authentication
+            // instead, and a fresh one is requested every time a stream is opened.
             return "http://" + _tvhServerName + ":" + _httpPort + _webRoot;
         }
 
@@ -291,11 +282,6 @@ namespace TVHeadEnd
             _logger.LogDebug("[TVHclient] HTSConnectionHandler.GetChannelImage: channelId: {Id}", channelId);
 
             return ResolveImageUrl(_channelDataHelper.GetChannelIcon4ChannelId(channelId));
-        }
-
-        public Dictionary<string, string> GetHeaders()
-        {
-            return new Dictionary<string, string>(_headers);
         }
 
         // private static Stream ImageToPNGStream(Image image)
