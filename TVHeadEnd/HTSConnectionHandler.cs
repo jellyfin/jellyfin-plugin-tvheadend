@@ -265,7 +265,26 @@ namespace TVHeadEnd
                 return image;
             }
 
-            return GetAuthenticatedUrl(image);
+            return GetPublicUrl(image);
+        }
+
+        /// <summary>
+        /// Builds an absolute URL for a resource TVHeadend serves without authentication.
+        /// </summary>
+        /// <remarks>
+        /// TVHeadend registers <c>/imagecache</c> with <c>ACCESS_ANONYMOUS</c>, so artwork needs
+        /// no credentials at all. Jellyfin fetches artwork URLs itself and cannot attach headers,
+        /// so a credentialed URL would have to carry the password in the userinfo part, where it
+        /// ends up in the server log on every failed fetch.
+        /// </remarks>
+        /// <param name="relativePath">The path below the web root, with or without a leading slash.</param>
+        /// <returns>An absolute URL without credentials.</returns>
+        public string GetPublicUrl(string relativePath)
+        {
+            EnsureConnection();
+
+            return "http://" + _tvhServerName + ":" + _httpPort + _webRoot
+                + "/" + relativePath.TrimStart('/');
         }
 
         /// <summary>
