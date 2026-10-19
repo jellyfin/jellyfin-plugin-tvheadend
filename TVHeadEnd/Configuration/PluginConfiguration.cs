@@ -26,6 +26,7 @@ namespace TVHeadEnd.Configuration
             ChannelType = "Ignore";
             HideRecordingsChannel = false;
             EnableSubsMaudios = false;
+            OfferSubtitles = true;
             ForceDeinterlace = false;
             IncludeUnnumberedChannels = true;
         }
@@ -53,6 +54,8 @@ namespace TVHeadEnd.Configuration
         public bool HideRecordingsChannel { get; set; }
 
         public bool EnableSubsMaudios { get; set; }
+
+        public bool OfferSubtitles { get; set; }
 
         public bool ForceDeinterlace { get; set; }
 
