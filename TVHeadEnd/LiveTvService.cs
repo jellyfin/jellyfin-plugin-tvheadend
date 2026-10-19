@@ -433,6 +433,7 @@ namespace TVHeadEnd
                 livetvasset.RequiresClosing = true;
                 livetvasset.SupportsProbing = false;
                 livetvasset.Container = "mpegts";
+                livetvasset.Bitrate = _htsConnectionHandler.GetFallbackBitrate();
                 livetvasset.RequiresOpening = true;
                 livetvasset.IsInfiniteStream = true;
 
@@ -469,6 +470,7 @@ namespace TVHeadEnd
                     AnalyzeDurationMs = 2000,
                     SupportsDirectStream = false,
                     SupportsProbing = false,
+                    Bitrate = _htsConnectionHandler.GetFallbackBitrate(),
                     Container = "mpegts",
                     MediaStreams = new List<MediaStream>
                     {
@@ -479,7 +481,8 @@ namespace TVHeadEnd
                             Index = -1,
                             // Set to true if unknown to enable deinterlacing
                             IsInterlaced = true,
-                            RealFrameRate = 50.0F
+                            RealFrameRate = 50.0F,
+                            BitRate = _htsConnectionHandler.GetFallbackBitrate()
                         },
                         new MediaStream
                         {
@@ -489,6 +492,27 @@ namespace TVHeadEnd
                         }
                     }
                 };
+            }
+        }
+
+        private void ApplyFallbackBitrate(IReadOnlyList<MediaStream> streams)
+        {
+            var fallback = _htsConnectionHandler.GetFallbackBitrate();
+
+            if (fallback is null)
+            {
+                return;
+            }
+
+            // EncodingHelper caps the client's request with the bitrate of the video stream,
+            // not with the one on the media source, so the figure has to reach the stream to
+            // have any effect on the encoder parameters.
+            foreach (MediaStream i in streams)
+            {
+                if (i.Type == MediaStreamType.Video && (i.BitRate is null || i.BitRate <= 0))
+                {
+                    i.BitRate = fallback;
+                }
             }
         }
 
@@ -517,13 +541,15 @@ namespace TVHeadEnd
             {
                 _logger.LogDebug("Probe returned:");
 
-                mediaSourceInfo.Bitrate = info.Bitrate;
-                _logger.LogDebug("        BitRate:                    {BitRate}", info.Bitrate);
+                // A live transport stream does not always yield a bitrate.
+                mediaSourceInfo.Bitrate = info.Bitrate > 0 ? info.Bitrate : _htsConnectionHandler.GetFallbackBitrate();
+                _logger.LogDebug("        BitRate:                    {BitRate}", mediaSourceInfo.Bitrate);
 
                 mediaSourceInfo.Container = info.Container;
                 _logger.LogDebug("        Container:                  {Container}", info.Container);
 
                 mediaSourceInfo.MediaStreams = info.MediaStreams;
+                ApplyFallbackBitrate(mediaSourceInfo.MediaStreams);
                 _logger.LogDebug("        MediaStreams:               ");
                 LogMediaStreamList(info.MediaStreams, "                       ");
 
