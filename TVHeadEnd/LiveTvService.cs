@@ -41,6 +41,8 @@ namespace TVHeadEnd
 
         private readonly ILogger<LiveTvService> _logger;
 
+        private long _sourceCounter;
+
         public LiveTvService(ILoggerFactory loggerFactory, IMediaEncoder mediaEncoder, HTSConnectionHandler connectionHandler)
         {
             // System.Diagnostics.StackTrace t = new System.Diagnostics.StackTrace();
@@ -422,7 +424,7 @@ namespace TVHeadEnd
 
                 MediaSourceInfo livetvasset = new MediaSourceInfo();
 
-                livetvasset.Id = channelId;
+                livetvasset.Id = NewSourceId(channelId);
 
                 // Use HTTP basic auth in HTTP header instead of TVH ticketing system for authentication to allow the users to switch subs or audio tracks at any time
                 livetvasset.Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Path;
@@ -463,7 +465,7 @@ namespace TVHeadEnd
             {
                 return new MediaSourceInfo
                 {
-                    Id = channelId,
+                    Id = NewSourceId(channelId),
                     Path = _htsConnectionHandler.GetHttpBaseUrl() + ticket.Url,
                     Protocol = MediaProtocol.Http,
                     AnalyzeDurationMs = 2000,
@@ -490,6 +492,12 @@ namespace TVHeadEnd
                     }
                 };
             }
+        }
+
+        private string NewSourceId(string channelId)
+        {
+            // Jellyfin builds the live stream id from this, so two viewers of one channel must not share it.
+            return channelId + "-" + Interlocked.Increment(ref _sourceCounter).ToString(CultureInfo.InvariantCulture);
         }
 
         private async Task ProbeStream(MediaSourceInfo mediaSourceInfo, string probeUrl, string source, CancellationToken cancellationToken)
