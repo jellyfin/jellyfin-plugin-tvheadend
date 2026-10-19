@@ -252,6 +252,12 @@ namespace TVHeadEnd.DataHelper
                                 switch (state)
                                 {
                                     case "completed":
+                                        // A recording that failed before writing anything has an entry but no media.
+                                        if (m.ContainsField("dataSize") && m.GetLong("dataSize") <= 0)
+                                        {
+                                            continue;
+                                        }
+
                                         ri.Status = RecordingStatus.Completed;
                                         break;
                                     case "scheduled":
@@ -259,8 +265,8 @@ namespace TVHeadEnd.DataHelper
                                         continue;
                                     // break;
                                     case "missed":
-                                        ri.Status = RecordingStatus.Error;
-                                        break;
+                                        // Nothing was recorded, so there is nothing to play.
+                                        continue;
                                     case "recording":
                                         ri.Status = RecordingStatus.InProgress;
                                         break;
