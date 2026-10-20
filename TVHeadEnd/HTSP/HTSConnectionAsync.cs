@@ -360,6 +360,10 @@ namespace TVHeadEnd.HTSP
                 {
                     threadOk = false;
                     _logger.LogError(ex, "[TVHclient] HTSConnectionAsync.SendingHandler: exception caught");
+
+                    // The failing connection marks itself.
+                    Stop();
+
                     if (_listener != null)
                     {
                         _listener.OnError(ex);
@@ -397,6 +401,10 @@ namespace TVHeadEnd.HTSP
                 catch (Exception ex)
                 {
                     threadOk = false;
+
+                    // Mark this connection, so a reconnection that already happened is not torn down instead.
+                    Stop();
+
                     if (_listener != null)
                     {
                         Task.Run(() => _listener.OnError(ex));
@@ -433,6 +441,10 @@ namespace TVHeadEnd.HTSP
                 catch (Exception ex)
                 {
                     threadOk = false;
+
+                    // Mark this connection, so a reconnection that already happened is not torn down instead.
+                    Stop();
+
                     if (_listener != null)
                     {
                         _listener.OnError(ex);
@@ -486,6 +498,10 @@ namespace TVHeadEnd.HTSP
                 catch (Exception ex)
                 {
                     threadOk = false;
+
+                    // Mark this connection, so a reconnection that already happened is not torn down instead.
+                    Stop();
+
                     if (_listener != null)
                     {
                         _listener.OnError(ex);

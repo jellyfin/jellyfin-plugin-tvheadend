@@ -36,6 +36,14 @@ namespace TVHeadEnd.DataHelper
             _includeUnnumberedChannels = includeUnnumberedChannels;
         }
 
+        public void Clear()
+        {
+            lock (_data)
+            {
+                _data.Clear();
+            }
+        }
+
         public void Add(HTSMessage message)
         {
             lock (_data)
