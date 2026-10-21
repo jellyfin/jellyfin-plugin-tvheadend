@@ -326,24 +326,18 @@ namespace TVHeadEnd.HTSP
 
         private byte[] ToByteArray(System.Numerics.BigInteger big)
         {
+            // Little-endian minimal representation: strip only the insignificant
+            // high-order (trailing) zero bytes. Interior zero bytes are significant
+            // and must be preserved - dropping them silently corrupts the value that
+            // Tvheadend decodes (e.g. 1900019741 would be read back as 7421981).
             byte[] b = BitConverter.GetBytes((long)big);
-            byte[] b1 = Array.Empty<byte>();
-            bool tail = false;
-            for (int ii = 0; ii < b.Length; ii++)
+            int end = b.Length;
+            while (end > 1 && b[end - 1] == 0)
             {
-                if (b[ii] != 0 || !tail)
-                {
-                    tail = true;
-                    b1 = b1.Concat(new byte[] { b[ii] }).ToArray();
-                }
+                end--;
             }
 
-            if (b1.Length == 0)
-            {
-                b1 = new byte[1];
-            }
-
-            return b1;
+            return b.Take(end).ToArray();
         }
 
         public static HTSMessage? Parse(byte[] data, ILogger<HTSMessage> logger)
